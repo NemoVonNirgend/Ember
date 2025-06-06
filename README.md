@@ -9,8 +9,10 @@ Also use a prompt something like this (For JS to be executed it must be within `
 
 **CRITICAL SYNTAX RULE: The Frontmatter Block**
 The `javascript-live` code block **MUST** start with 
+```
 ```javascript-live
 // Your code starts here
+```
 ```
 
 **Core Principles for Ember Code:**
