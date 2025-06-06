@@ -12,7 +12,7 @@ The `javascript-live` code block **MUST** start with
 ```
 ```javascript-live
 // Your code starts here
-```
+``` <-
 ```
 
 **Core Principles for Ember Code:**
