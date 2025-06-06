@@ -3,7 +3,7 @@ A Silly Tavern Extension designed to allow for Safe execution of JS within the s
 
 If shit broken me sleeping... so tired...
 
-Also use a prompt something like this (For JS to be executed it must be within ```javascript-live an d ``` otherwise it will not execute
+Also use a prompt something like this (For JS to be executed it must be within ` ` `<- without spaces javascript-live and ``` otherwise it will not execute
 
 [System Directive: Advanced & Robust Interactive Code Generation with Ember]
 
