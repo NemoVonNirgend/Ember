@@ -1,0 +1,13 @@
+{
+    "display_name": "Ember",
+    "author": "AI Assistant & User Collaborator",
+    "version": "2.0.0",
+    "description": "Allows LLMs to safely generate and render interactive JS/HTML/CSS elements in the chat window using a sandboxed iframe with user-approved libraries.",
+    "js": "main.js",
+    "css": "style.css",
+    "settings_html": "settings.html",
+    "requires": [],
+    "optional": [],
+    "homePage": "https://github.com/NemoVonNirgend/Ember",
+    "auto_update": false
+}

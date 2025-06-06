@@ -1,0 +1,36 @@
+<!-- FINAL settings.html for Ember -->
+<div class="world_entry">
+    <div class="inline-drawer wide100p">
+        <div class="inline-drawer-header">
+            <div class="world_entry_icon fa-solid fa-fire-flame-curved"></div>
+            <div class="world_entry_name">Ember</div>
+            <div class="inline-drawer-toggle fa-fw fa-solid fa-circle-chevron-down inline-drawer-icon down" title="Toggle Ember settings"></div>
+        </div>
+
+        <div class="inline-drawer-content" style="display: none;">
+            <div id="ember-settings-content">
+                <p class="description">
+                    Ember includes a built-in set of trusted JavaScript libraries. The LLM can request any of the following libraries by using its alias in the frontmatter of a code block.
+                </p>
+                <div id="ember-library-list" style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                    <!-- This list is now static and for informational purposes only -->
+                    <div class="ember-library-display-entry"><code>d3</code> <small>(D3.js)</small></div>
+                    <div class="ember-library-display-entry"><code>three</code> <small>(Three.js)</small></div>
+                    <div class="ember-library-display-entry"><code>p5</code> <small>(p5.js)</small></div>
+                    <div class="ember-library-display-entry"><code>anime</code> <small>(Anime.js)</small></div>
+                    <div class="ember-library-display-entry"><code>chartjs</code> <small>(Chart.js)</small></div>
+                    <div class="ember-library-display-entry"><code>matter</code> <small>(Matter.js)</small></div>
+                </div>
+                <p class="description" style="margin-top: 15px;">
+                    Example usage in a `javascript-live` block:
+<pre style="white-space: pre-wrap; background-color: var(--background-color); padding: 5px; border-radius: 5px;">---
+libs:
+  - three
+  - anime
+---
+// Your code here...</pre>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
