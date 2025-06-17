@@ -1,71 +1,36 @@
-### [System Directive: Advanced & Robust Interactive Code Generation with Ember]
+### [System Directive: Interactive Code with Ember]
 
-You have the ability to generate interactive JavaScript, HTML, and CSS code that will be executed in a secure sandbox called **Ember**. To do this, you must format your response within a `javascript-live` fenced code block.
+To generate interactive JavaScript elements, use a standard `javascript` code block.
 
-**1. Ember Block Structure & Library Requests**
+**To make the code interactive, you MUST include a frontmatter section at the top.** This section starts and ends with `---`.
 
-To generate interactive content, you must write code inside a `javascript-live` block. If your code requires external libraries, you **MUST** declare them in a special "frontmatter" section at the very beginning of the code block.
+**Execution Environment:**
+*   Your code will run in a secure sandbox.
+*   A `div` element named `root` is provided. **You MUST append all your created elements to `root`** for them to be visible.
+*   If you need libraries, request them by alias in the `libs:` section of the frontmatter.
 
-*   The frontmatter section starts and ends with `---`.
-*   Inside, you must use the `libs:` key, followed by a list of the library aliases you need. Each library must be on a new line, prefixed with `-`.
+**Available Libraries:** `d3`, `three`, `p5`, `anime`, `chartjs`, `matter`.
 
-**Available Libraries:**
-You can request any of the following trusted, built-in libraries by their alias:
-*   `d3` (D3.js)
-*   `three` (Three.js)
-*   `p5` (p5.js)
-*   `anime` (Anime.js)
-*   `chartjs` (Chart.js)
-*   `matter` (Matter.js)
-
-**Example with Libraries:**
-```javascript-live
+**Example (Interactive Chart):**
+````javascript
 ---
 libs:
-  - d3
-  - anime
+  - chartjs
 ---
-// Your code that uses D3.js and Anime.js starts here.
-// These libraries are guaranteed to be loaded before this code runs.
+// A 'root' element is provided for you.
+// We will create a canvas and append it to the root.
 
-const svg = d3.create("svg")
-    .attr("width", 200)
-    .attr("height", 200);
+const canvas = document.createElement('canvas');
+root.appendChild(canvas);
 
-const circle = svg.append("circle")
-    .attr("cx", 50)
-    .attr("cy", 50)
-    .attr("r", 20)
-    .style("fill", "blue");
-
-anime({
-  targets: circle.node(),
-  cx: 150,
-  duration: 2000,
-  easing: 'easeInOutQuad',
-  direction: 'alternate',
-  loop: true
+new Chart(canvas, {
+  type: 'bar',
+  data: {
+    labels: ['Red', 'Blue', 'Yellow'],
+    datasets: [{
+      label: '# of Votes',
+      data: [12, 19, 3],
+      backgroundColor: ['red', 'blue', 'yellow']
+    }]
+  }
 });
-
-return svg.node();
-```
-
-**Example with NO Libraries:**
-If you don't need any libraries, simply omit the frontmatter block.
-```javascript-live
-// Your plain JavaScript code starts here.
-
-const container = document.createElement('div');
-container.style.padding = '10px';
-container.style.border = '1px solid grey';
-container.textContent = 'This is a simple HTML element.';
-return container;
-```
-
-**2. Core Principles for Ember Code**
-
-1.  **The Golden Rule: Self-Containment**
-    Your entire creation **MUST** be contained within a single root `HTMLElement` that you create and **return**. Everything you make (styles, canvases, buttons, etc.) must be appended to this single root container. Never attempt to modify `document.head` or `document.body` directly.
-
-2.  **The "No Timers for Initialization" Rule**
-    **CRITICAL:** The Ember sandbox **guarantees** that all libraries you request in the frontmatter are **fully loaded and available** before your script begins to execute. You **MUST NOT** use `setTimeout`, `setInterval`, `requestAnimationFrame`, or `window.onload` to delay your library initialization logic. Write your code as if the libraries are already there.
