@@ -125,6 +125,7 @@ To generate complex interactive elements (like charts, games, or dynamic API-dri
 ### Part 2: Interactive Raw HTML (When Not Using JS Blocks)
 
 For simple choices, forms, or controls, you can generate raw HTML directly in your response. Ember will make these elements interactive.
+If you provide HTML for rendering (e.g., an SCP document), provide it as raw HTML, not inside a markdown code block unless the entire message is that block.
 
 **1. Use Standard HTML:**
 *   Use \`<button>\`, \`<input>\`, \`<select>\`, \`<textarea>\`, and \`<label>\`.
@@ -189,19 +190,17 @@ let emberSettings = {
     directHtmlProcessingMode: 'both',
     clickableInputsEnabled: true,
     clickableInputsPromptEnabled: true,
-    // This setting key now stores the Ember JS/API instructions
     clickableInputsPrompt: DEFAULT_EMBER_JS_INSTRUCTIONS,
 };
 
-// Function to update the global prompt injection based on settings
 function updateEmberPromptInjection() {
-    const promptId = "emberinstructions"; // Unique ID for this specific injection
-    const promptDepth = 4; // Fixed depth as requested
+    const promptId = "emberinstructions";
+    const promptDepth = 4;
 
     if (emberSettings.clickableInputsEnabled && emberSettings.clickableInputsPromptEnabled) {
         setExtensionPrompt(promptId, emberSettings.clickableInputsPrompt, extension_prompt_types.IN_PROMPT, promptDepth);
     } else {
-        setExtensionPrompt(promptId, ""); // Clear the injection if disabled
+        setExtensionPrompt(promptId, "");
     }
 }
 
@@ -230,7 +229,7 @@ function inputToString(inputElement, logicalParent) {
     if (inputElement.tagName === "SELECT") value = inputElement.options[inputElement.selectedIndex].text;
     if (type === "checkbox") value = inputElement.checked ? "on" : "off";
     const labelForInput = findLabelForInput(inputElement, logicalParent);
-    if (!labelForInput && !['button', 'submit', 'reset'].includes(type)) return ""; // Buttons might not have explicit labels
+    if (!labelForInput && !['button', 'submit', 'reset'].includes(type)) return "";
     const labelPrefix = labelForInput ? `${labelForInput}${labelForInput.endsWith(":") ? "" : ":"} ` : "";
     return `${labelPrefix}${value}${modifier}\n`;
 }
@@ -238,7 +237,7 @@ function inputToString(inputElement, logicalParent) {
 function extractDataFromInputs(logicalParent) {
     let output = "";
     logicalParent.querySelectorAll('input:not([type="button"]):not([type="submit"]):not([type="reset"]), select, textarea').forEach(el => {
-        if (el.closest('iframe')) return; // Ignore inputs inside iframes (like EmberJS blocks)
+        if (el.closest('iframe')) return;
         output += inputToString(el, logicalParent);
     });
     return output.trim();
@@ -247,7 +246,7 @@ function extractDataFromInputs(logicalParent) {
 async function handleInteractiveElementChangeEvent(event) {
     const element = event.target;
     const logicalParent = getLogicalParentDiv(element);
-    if (logicalParent.querySelector(`button[${ELEMENT_LLM_SUBMIT_ATTRIBUTE}]`)) return; // Let submit button handle it
+    if (logicalParent.querySelector(`button[${ELEMENT_LLM_SUBMIT_ATTRIBUTE}]`)) return;
     const output = inputToString(element, logicalParent).trim();
     if (output) {
         await sendMessageAsUser(output);
@@ -262,9 +261,8 @@ async function handleInteractiveButtonClickEvent(event) {
     if (button.hasAttribute(ELEMENT_LLM_SUBMIT_ATTRIBUTE)) {
         messageToSend = extractDataFromInputs(logicalParent);
     }
-    // Use data-title for displayed text if available, otherwise use textContent
     const buttonText = button.getAttribute('data-title') || button.textContent.trim();
-    messageToSend += (messageToSend ? "\n" : "") + buttonText; // Send the display text or content
+    messageToSend += (messageToSend ? "\n" : "") + buttonText;
 
 
     await sendMessageAsUser(messageToSend);
@@ -276,7 +274,6 @@ async function handleInteractiveButtonClickEvent(event) {
             const injectDepth = parseInt(button.getAttribute('data-inject-depth') || '0', 10);
             const injectEphemeral = button.getAttribute('data-inject-ephemeral') === 'true';
 
-            // Use SlashCommands.executeCommand to perform the injection
             let commandString = `/inject id="${injectId.replace(/"/g, '\\"')}" depth=${injectDepth} content="${injectContent.replace(/"/g, '\\"')}"`;
             if (injectEphemeral) commandString += " ephemeral=true";
 
@@ -296,34 +293,24 @@ function makeElementInteractive(element) {
 
     if (tagName === 'button' || (tagName === 'input' && ['button', 'submit', 'reset'].includes(inputType))) {
         element.addEventListener('click', handleInteractiveButtonClickEvent);
-    } else if ((tagName === 'input' && !['button', 'submit', 'reset', 'text', 'password', 'search', 'file', 'image', 'color'].includes(inputType)) || tagName === 'select') { // Exclude more input types that have their own UIs or don't fit 'change' well for this
+    } else if ((tagName === 'input' && !['button', 'submit', 'reset', 'text', 'password', 'search', 'file', 'image', 'color'].includes(inputType)) || tagName === 'select') {
         element.addEventListener('change', handleInteractiveElementChangeEvent);
     } else if (tagName === 'textarea' || (tagName === 'input' && ['text', 'password', 'search'].includes(inputType))) {
-         // Add an event listener for the 'input' event for text fields and textareas
-        // This allows catching paste and other input methods, but doesn't trigger Generation immediately.
-        // Sending happens on 'Enter' keypress (handled below) or if a submit button is pressed.
         element.addEventListener('input', () => { /* Simply acknowledge input occurred */ });
-
         element.addEventListener('keypress', (e) => {
-            // Send on Enter, but not if Shift is pressed (for newlines in textarea)
-            // And not if it's a textarea inside a form (let form submit handle it)
-            // Also check if a submit button is present - if so, we don't send on Enter.
             const logicalParent = getLogicalParentDiv(element);
             if (e.key === 'Enter' && !e.shiftKey && !(element.tagName === 'textarea' && element.closest('form')) && !logicalParent.querySelector(`button[${ELEMENT_LLM_SUBMIT_ATTRIBUTE}]`)) {
-                 // Trigger the change handler logic which includes sending message and generating
-                // Note: Pass the element itself, not the keypress event, as handleInteractiveElementChangeEvent expects the input element as its context.
                 handleInteractiveElementChangeEvent({ target: element });
-                e.preventDefault(); // Prevent default Enter action (e.g., form submission if not intended)
+                e.preventDefault();
             }
         });
-    } else { return; } // Not an element we make interactive this way
+    } else { return; }
     element.setAttribute(ELEMENT_CLICKABLE_ATTRIBUTE, 'true');
 }
 
 function processClickableInputs(messageTextElement) {
     if (!emberSettings.clickableInputsEnabled) return;
     messageTextElement.querySelectorAll('button, input, select, textarea').forEach(el => {
-        // Ensure the element is not part of an Ember JS block iframe or generic HTML iframe
         if (!el.closest('.ember-iframe, .ember-generic-html-iframe, .ember-container')) {
             makeElementInteractive(el);
         }
@@ -333,36 +320,44 @@ function processClickableInputs(messageTextElement) {
 async function renderGenericHtmlInFrame(targetElement, htmlString, messageId) {
     if (!targetElement || targetElement.dataset.genericHtmlRendered === 'true') return;
     console.log(`[Ember HTML] Rendering generic HTML for message ${messageId}`);
-    // Store original HTML to restore if needed
-    const originalHtml = targetElement.innerHTML;
-    targetElement.innerHTML = '';
+    const originalHtmlInDom = targetElement.innerHTML; // Store current DOM content for potential restore
+    targetElement.innerHTML = ''; // Clear target for iframe
     const iframe = document.createElement('iframe');
     iframe.className = 'ember-generic-html-iframe';
     Object.assign(iframe.style, { width: '100%', border: 'none', display: 'block', overflow: 'hidden' });
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin'); // Allow scripts and same origin fetch for APIs
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
 
     const loadingSpinner = Object.assign(document.createElement('div'), {
-        className: 'ember-loading-container', // Use same loading style
+        className: 'ember-loading-container',
         innerHTML: `<i class="fa-solid fa-spinner fa-spin"></i> <span>Loading HTML...</span>`,
-        style: 'min-height: 50px; border: none; opacity: 0.7;' // Less obtrusive for HTML load
+        style: 'min-height: 50px; border: none; opacity: 0.7;'
     });
-     targetElement.appendChild(loadingSpinner);
+    targetElement.appendChild(loadingSpinner);
 
     const resizeIframe = () => {
         if (!iframe.contentWindow?.document?.body) return;
-        iframe.style.height = Math.max(1, iframe.contentWindow.document.body.scrollHeight) + 'px';
+        // Use scrollHeight of documentElement for more robust height calculation
+        iframe.style.height = Math.max(1, iframe.contentWindow.document.documentElement.scrollHeight) + 'px';
     };
     let resizeObserverInstance = null;
     iframe.addEventListener('load', () => {
         if (!iframe.contentWindow?.document?.body) { console.error("[Ember HTML] Iframe body not found on load for", messageId); return; }
         const body = iframe.contentWindow.document.body;
         const htmlEl = iframe.contentWindow.document.documentElement;
+
+        // Ensure internal body/html don't cause double scrollbars and have no margin
+        body.style.margin = '0';
+        body.style.padding = '0'; // Often good to zero out padding too
+        // body.style.overflow = 'hidden'; // Let content dictate scrollHeight, parent iframe handles clipping via height
+        // htmlEl.style.overflow = 'hidden'; // Same for html element
+
         resizeIframe();
         if (!resizeObserverInstance) {
             resizeObserverInstance = new ResizeObserver(resizeIframe);
-            resizeObserverInstance.observe(body); resizeObserverInstance.observe(htmlEl);
+            // Observe both body and documentElement for size changes
+            resizeObserverInstance.observe(body);
+            resizeObserverInstance.observe(htmlEl);
         }
-        // Hide spinner and ensure iframe is block displayed after load
         loadingSpinner.style.display = 'none';
         iframe.style.display = 'block';
     });
@@ -371,28 +366,25 @@ async function renderGenericHtmlInFrame(targetElement, htmlString, messageId) {
         if (!targetElement.contains(iframe) && resizeObserverInstance) {
             resizeObserverInstance.disconnect(); resizeObserverInstance = null; obs.disconnect();
         }
-         // If the iframe is removed, clean up the dataset flag
-         if (!targetElement.contains(iframe)) {
-             delete targetElement.dataset.genericHtmlRendered;
-         }
+        if (!targetElement.contains(iframe)) {
+            delete targetElement.dataset.genericHtmlRendered;
+        }
     }).observe(targetElement, { childList: true });
 
     const computedParentStyle = window.getComputedStyle(targetElement);
-     // Include base styles for images/videos/iframes
     const iframeContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><base target="_blank"><style>
-        html{overflow:hidden;}
-        body{
+        html { margin:0; padding:0; /* overflow:hidden; --- Let content dictate height */ }
+        body {
             font-family:${computedParentStyle.fontFamily};
             color:${computedParentStyle.color};
             background-color:transparent;
             margin:0;padding:0;
-            overflow:hidden;
+            /* overflow:hidden; --- Let content dictate height */
             word-wrap:break-word;
             overflow-wrap:break-word;
         }
         a{color:${computedParentStyle.getPropertyValue('--primary-color')||'dodgerblue'};}
         img,video,iframe{max-width:100%;height:auto;display:block;}
-        /* Basic styles for common elements */
         h1, h2, h3, h4, h5, h6 { color: var(--text-color); margin-top: 0.5em; margin-bottom: 0.5em; }
         p { margin-top: 0.5em; margin-bottom: 0.5em; }
         ul, ol { margin-top: 0.5em; margin-bottom: 0.5em; padding-left: 20px; }
@@ -405,23 +397,23 @@ async function renderGenericHtmlInFrame(targetElement, htmlString, messageId) {
         blockquote { margin: 1em 40px; padding: 0 15px; border-left: 4px solid var(--SmartThemeBorderColor, #ccc); opacity: 0.8; }
     </style></head><body>${htmlString}</body></html>`;
     try {
-        if (iframe.contentWindow) {
-             targetElement.appendChild(iframe); // Append iframe *before* writing to it
+        targetElement.appendChild(iframe); // Append iframe *before* writing to it
+        if (iframe.contentWindow) { // Check again just before use
              iframe.contentWindow.document.open();
              iframe.contentWindow.document.write(iframeContent);
              iframe.contentWindow.document.close();
-        } else { throw new Error("iframe.contentWindow not available for generic HTML rendering."); }
+        } else { throw new Error("iframe.contentWindow not available for generic HTML rendering just before write."); }
     } catch (e) {
         console.error(`[Ember HTML] Error writing to iframe for message ${messageId}:`, e);
-        // Restore original content if iframe fails
-        targetElement.innerHTML = originalHtml;
+        targetElement.innerHTML = originalHtmlInDom; // Restore original DOM content if iframe fails
         delete targetElement.dataset.genericHtmlRendered;
-        loadingSpinner.remove(); // Remove spinner if we revert
+        loadingSpinner.remove();
     }
     targetElement.dataset.genericHtmlRendered = 'true';
 }
 
-function addGenericHtmlRunButton(messageDomElement, messageId) {
+
+function addGenericHtmlRunButton(messageDomElement, messageId, htmlContentToRenderOnClick) {
     if (!messageDomElement || messageDomElement.querySelector('.ember-run-html-button')) return;
     const buttonContainer = messageDomElement.querySelector('.extraMesButtons');
     if (buttonContainer) {
@@ -431,16 +423,13 @@ function addGenericHtmlRunButton(messageDomElement, messageId) {
         button.addEventListener('click', (event) => {
             event.stopPropagation();
             const mesTextEl = messageDomElement.querySelector('.mes_text');
-            const html = getContext().chat[messageId]?.mes;
-            if (mesTextEl && html) {
-                // Need to clear potential clickable inputs before rendering iframe over them
+            if (mesTextEl && htmlContentToRenderOnClick) { // Use the passed HTML content
                  mesTextEl.querySelectorAll(`[${ELEMENT_CLICKABLE_ATTRIBUTE}]`).forEach(el => {
                      el.removeAttribute(ELEMENT_CLICKABLE_ATTRIBUTE);
-                     // Note: Actual event listener removal is more complex. Cloning/replacing is an option.
                  });
-                renderGenericHtmlInFrame(mesTextEl, html, messageId);
+                renderGenericHtmlInFrame(mesTextEl, htmlContentToRenderOnClick, messageId);
             }
-            button.remove(); // Remove button after click
+            button.remove();
         });
         buttonContainer.prepend(button);
     }
@@ -448,13 +437,11 @@ function addGenericHtmlRunButton(messageDomElement, messageId) {
 
 async function attemptSelfHeal(messageId, codeElement, errorMessage) {
     const healButton = document.querySelector(`.mes[mesid="${messageId}"] .ember-heal-button`);
-    if (healButton?.classList.contains('fa-spin')) return; // Prevent multiple attempts
+    if (healButton?.classList.contains('fa-spin')) return;
     if (healButton) healButton.classList.add('fa-spin');
     const originalCode = codeElement.innerText;
-    // Prepare the full context including the system prompt, error, and code
     const promptText = `${HEALER_SYSTEM_PROMPT}\n\nError/Symptom: "${errorMessage}"\n\n\`\`\`javascript\n${originalCode}\n\`\`\``;
     try {
-        // Use the fetch API with Pollinations endpoint for AI healing
         const res = await fetch('https://text.pollinations.ai/', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: 'gpt-4.1', messages: [{ role: 'user', content: promptText }], private: true })
@@ -468,11 +455,8 @@ async function attemptSelfHeal(messageId, codeElement, errorMessage) {
             const core = getContext(); const msg = core.chat[messageId];
             if (!msg) throw new Error(`Message ${messageId} not found in chat context.`);
 
-            // Replace the original code block content within the message text
-            // Find the specific pre element by dataset attribute set during initial processing
-            const preElement = document.querySelector(`.mes[mesid="${messageId}"] pre[data-ember-processed="true"]`);
+            let preElement = document.querySelector(`.mes[mesid="${messageId}"] pre[data-ember-processed="true"]`);
             if (!preElement) {
-                 // Fallback: if the dataset is gone, try finding the pre containing the original code text
                  console.warn(`[Ember Self-Heal] Could not find pre element with data-ember-processed="true" for message ${messageId}. Searching by content.`);
                  const allPre = document.querySelectorAll(`.mes[mesid="${messageId}"] pre`);
                  for(const pre of allPre) {
@@ -486,48 +470,30 @@ async function attemptSelfHeal(messageId, codeElement, errorMessage) {
                  }
             }
 
-            // Create the full corrected markdown block with frontmatter
             const originalFrontmatterMatch = originalCode.match(/^---\s*([\s\S]*?)\s*---/);
             const correctedMarkdown = `${originalFrontmatterMatch ? originalFrontmatterMatch[0].trim() + '\n' : '---\n---\n'}\n\`\`\`javascript\n${correctedCode}\n\`\`\``;
-
-            // Replace the specific pre element's outer HTML in the original message text
-            // This is a bit tricky as chat[messageId].mes is the raw markdown
-            // A safer approach might be to directly modify the markdown string.
-            // Let's find the raw markdown for the original code block in msg.mes
             const originalMarkdownBlockMatch = msg.mes.match(new RegExp(`(\`\`\`javascript\\s*${escapeRegExp(originalCode)}\\s*\`\`\`)`, 's'));
 
             if (originalMarkdownBlockMatch) {
                  const fullOriginalBlock = originalMarkdownBlockMatch[1];
-                 // Reconstruct the full block including frontmatter if present in the original markdown
                  const fullOriginalMarkdownWithFrontmatterMatch = msg.mes.match(new RegExp(`(---\\s*[\\s\\S]*?\\s*---\\s*)?${escapeRegExp(fullOriginalBlock)}`, 's'));
 
                  if (fullOriginalMarkdownWithFrontmatterMatch) {
                       const fullOriginalMarkdown = fullOriginalMarkdownWithFrontmatterMatch[0];
                       msg.mes = msg.mes.replace(fullOriginalMarkdown, correctedMarkdown);
-
-                      // Re-render the message DOM element
                       const msgEl = document.querySelector(`.mes[mesid="${messageId}"] .mes_text`);
                        if (msgEl) {
-                           // Clean up old Ember elements before re-rendering
                            cleanupEmberElements(messageId);
-                           // Re-render markdown
                            msgEl.innerHTML = messageFormatting(msg.mes, msg.is_user ? core.name2 : msg.name, msg.is_system, msg.is_user, Number(messageId));
-                           // Add copy buttons back
                            addCopyToCodeBlocks(msgEl);
-                           // Re-process the message with Ember
                            handleMessageRender(Number(messageId), msg.is_user);
-                           // Emit event
                            eventSource.emit(event_types.MESSAGE_EDITED, Number(messageId));
                       } else {
                           console.error(`[Ember Self-Heal] Could not find message text element for message ${messageId} after editing.`);
-                          // If DOM element not found, at least the markdown is updated in chat context
                           alert('Ember: Message content updated in chat, but DOM element not found to re-render.');
                       }
-
                  } else { throw new Error("Could not find original markdown block structure in message text."); }
-
             } else { throw new Error("Could not find the original code block markdown in message text."); }
-
         } else { console.log('[Ember Self-Heal] AI provided identical or empty code. No fix applied.'); }
     } catch (err) {
         console.error('[Ember Self-Heal] Failed:', err);
@@ -536,9 +502,8 @@ async function attemptSelfHeal(messageId, codeElement, errorMessage) {
     finally { if (healButton) healButton.classList.remove('fa-spin'); }
 }
 
-// Helper function to escape regex special characters
 function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 
@@ -548,11 +513,10 @@ function createSandboxedFrame(code, libraryCodes = [], frameId) {
     });
     const safeCodeString = JSON.stringify(code);
     const iframeContent = `<html><head><style>body{font-family:var(--mainFontFamily,sans-serif);color:var(--text-color,#000);background-color:transparent;margin:0;padding:5px}#root{width:100%;height:100%;box-sizing:border-box}</style></head><body><div id="root"></div><script>(()=>{
-        const e="${frameId}"; // frameId (elementId for messages)
-        const t=o=>window.parent.postMessage({type:"ember-error",frameId:e,message:o},"*"); // reportError
-        const n=()=>window.parent.postMessage({type:"ember-success",frameId:e},"*"); // reportSuccess
+        const e="${frameId}";
+        const t=o=>window.parent.postMessage({type:"ember-error",frameId:e,message:o},"*");
+        const n=()=>window.parent.postMessage({type:"ember-success",frameId:e},"*");
 
-        // Ember global for JS blocks to interact with parent
         window.ember = {
             inject: function(options) {
                 if (!options || typeof options.content !== 'string') {
@@ -560,38 +524,31 @@ function createSandboxedFrame(code, libraryCodes = [], frameId) {
                     return;
                 }
                 const injectionData = {
-                    id: typeof options.id === 'string' ? options.id : 'ember_js_block', // Default ID
-                    depth: typeof options.depth === 'number' ? options.depth : 0,       // Default depth
+                    id: typeof options.id === 'string' ? options.id : 'ember_js_block',
+                    depth: typeof options.depth === 'number' ? options.depth : 0,
                     content: options.content,
-                    ephemeral: typeof options.ephemeral === 'boolean' ? options.ephemeral : false // Default ephemeral
+                    ephemeral: typeof options.ephemeral === 'boolean' ? options.ephemeral : false
                 };
                 window.parent.postMessage({ type: "ember-inject-js", frameId: e, injection: injectionData }, "*");
             }
-            // Future ember.* functions can be added here
         };
 
-        let o=!1; // hasReportedSuccess
-        // Use a slight delay before reporting success to allow async operations within the script
-        const s=()=>{if(o)return;o=!0,clearTimeout(d),i&&i.disconnect(), setTimeout(n, 50);}; // doReportSuccess (s for success)
-        const d=setTimeout(()=>{o||t("Ember Warning: Script produced no visual output within 7 seconds.")},7000); // timeout (d for delay)
-        const i=new MutationObserver(()=>{ if(document.getElementById("root")?.hasChildNodes()){ s(); } }); // mutationObserver (i for observer)
-        // Observe the root element directly for additions
+        let o=!1;
+        const s=()=>{if(o)return;o=!0,clearTimeout(d),i&&i.disconnect(), setTimeout(n, 50);};
+        const d=setTimeout(()=>{o||t("Ember Warning: Script produced no visual output within 7 seconds.")},7000);
+        const i=new MutationObserver(()=>{ if(document.getElementById("root")?.hasChildNodes()){ s(); } });
         const rootElementForObserver = document.getElementById("root");
         if(rootElementForObserver) {
              i.observe(rootElementForObserver,{childList:!0,subtree:!0});
-             // Also check immediately if root already has content
              if (rootElementForObserver.hasChildNodes()) { s(); }
         } else {
             t("Ember Internal Error: #root element not found in iframe for MutationObserver.");
         }
 
-
-        // ResizeObserver for iframe height
         new ResizeObserver(()=>{
-            const o=Math.ceil(document.documentElement.scrollHeight); // o for observedHeight
-            // Only post if height is positive, to avoid spamming 0 or negative heights during init
+            const o=Math.ceil(document.documentElement.scrollHeight);
             if(o>0) window.parent.postMessage({type:"ember-resize",frameId:e,height:o},"*");
-        }).observe(document.documentElement); // Observe the entire documentElement for size changes
+        }).observe(document.documentElement);
 
         try{
             const libraryScripts = ${JSON.stringify(libraryCodes)};
@@ -601,19 +558,11 @@ function createSandboxedFrame(code, libraryCodes = [], frameId) {
                 document.head.appendChild(scriptEl);
             }
             const userCodeToRun = ${safeCodeString};
-            // Ensure 'root' is available before the user script runs
             const rootElement = document.getElementById("root");
             if (!rootElement) { t("Ember Internal Error: #root element not found in iframe."); return; }
-            // Execute user code, passing root to it
-            // Using new Function allows 'root' to be scoped correctly
             new Function('root', userCodeToRun)(rootElement);
-
-            // If the script finishes without creating visual output (e.g., just injects context),
-            // the MutationObserver might not trigger s().
-            // Set a final timeout to report success if no visual output was detected by observer.
-            // This timeout is cancelled if the observer triggers.
-             setTimeout(s, 1000); // Give observer a chance, then report success
-        }catch(err){ // err for error
+             setTimeout(s, 1000);
+        }catch(err){
             t("Ember Execution Error: "+(err.stack||err.message));
         }})();<\/script></body></html>`;
     iframe.src = URL.createObjectURL(new Blob([iframeContent], { type: 'text/html' }));
@@ -624,7 +573,6 @@ async function processMessage(messageId, isUserMessage = false) {
     const messageDomElement = document.querySelector(`.mes[mesid="${messageId}"]`);
     if (!messageDomElement) return;
     const messageTextElement = messageDomElement.querySelector('.mes_text');
-    // Skip if already processed by an Ember iframe mechanism or is an edit textarea
     if (!messageTextElement || messageTextElement.querySelector('.ember-iframe, .ember-generic-html-iframe, .edit_textarea')) {
         return;
     }
@@ -632,109 +580,87 @@ async function processMessage(messageId, isUserMessage = false) {
     let processedByEmberJs = false;
     for (const codeBlock of messageTextElement.querySelectorAll(`pre > code[class*="language-javascript"], pre > code[class*="lang-javascript"]`)) {
         const parentPre = codeBlock.parentElement;
-         // Check if already processed by Ember JS (dataset is set on the <pre> element)
         if (parentPre.dataset.emberProcessed === 'true') { processedByEmberJs = true; continue; }
-
         const rawCode = codeBlock.innerText.trim();
         let frontmatter = '';
         let codeWithoutFrontmatter = rawCode;
-
-        // Attempt to parse frontmatter
         const frontmatterMatch = rawCode.match(/^---\s*([\s\S]*?)\s*---\s*([\s\S]*)$/);
         if (frontmatterMatch) {
             frontmatter = frontmatterMatch[1];
             codeWithoutFrontmatter = frontmatterMatch[2] || '';
         } else {
-            // If no frontmatter found, this block is not processed by Ember JS runtime
             continue;
         }
-
         if (!codeWithoutFrontmatter.trim()) {
-             // If frontmatter exists but code is empty, don't process as runnable JS
-             // Mark as processed to avoid checking again, but don't render iframe
              parentPre.dataset.emberProcessed = 'skipped';
              continue;
         }
-
         processedByEmberJs = true; parentPre.dataset.emberProcessed = 'true';
-
         const requestedLibs = [];
-        // Parse libraries from frontmatter
         try {
             frontmatter.trim().split('\n').forEach(line => {
                 const trimmedLine = line.trim();
-                if (trimmedLine.toLowerCase().startsWith('libs:')) {
-                    // This line starts the libs list
-                    return; // Continue to next line
-                }
-                // Check if the line is a list item starting with '-'
+                if (trimmedLine.toLowerCase().startsWith('libs:')) return;
                 if (trimmedLine.startsWith('-')) {
                     const libAlias = trimmedLine.substring(1).trim();
-                    if (libAlias) {
-                        requestedLibs.push(libAlias);
-                    }
+                    if (libAlias) requestedLibs.push(libAlias);
                 }
             });
         } catch (e) { console.error('[Ember JS] Error parsing frontmatter libs:', e); }
 
-
         const frameId = `ember-frame-${messageId}-${Date.now()}`;
         const loadingContainer = Object.assign(document.createElement('div'), { className: 'ember-loading-container', innerHTML: `<i class="fa-solid fa-spinner fa-spin"></i> <span>Ember JS preparing...</span>`, dataset: { frameId } });
         const finalContainer = Object.assign(document.createElement('div'), { className: 'ember-container', style: 'display:none;', dataset: { frameId } });
-        // Insert elements relative to the PRE element
         parentPre.insertAdjacentElement('afterend', finalContainer);
         parentPre.insertAdjacentElement('afterend', loadingContainer);
-
 
         try {
             const libUrls = requestedLibs.map(alias => BUILT_IN_LIBRARIES.find(lib=>lib.alias===alias)).filter(Boolean).map(libDef=>`${location.origin}/scripts/extensions/third-party/${MODULE_NAME}/lib/${libDef.file}`);
             const libCodes = await Promise.all(libUrls.map(url => fetch(url).then(res => res.ok ? res.text() : Promise.reject(`Failed to fetch library ${url}`))));
             finalContainer.appendChild(createSandboxedFrame(codeWithoutFrontmatter, libCodes, frameId));
-            parentPre.style.display = 'none'; // Hide original code block
+            parentPre.style.display = 'none';
         } catch (error) {
             console.error('[Ember JS] Critical error creating sandbox or fetching libs:', error);
             loadingContainer.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span><b>Ember JS Error:</b> Could not create sandbox or load libraries. Check console.</span>`;
             loadingContainer.style.color = 'var(--text-color-error)';
-            parentPre.dataset.emberProcessed = 'false'; // Allow reprocessing if user edits
-            // Remove containers if setup failed
-             if (finalContainer) finalContainer.remove();
+            parentPre.dataset.emberProcessed = 'false';
+            if (finalContainer) finalContainer.remove();
         }
     }
-    // If any Ember JS block was found and processed (even if it failed), stop here.
-    // This prevents Generic HTML or Clickable Inputs from processing content intended for JS.
     if (processedByEmberJs) return;
 
-    // Direct HTML Rendering Logic (if no Ember JS blocks were processed)
+    // Direct HTML Rendering Logic
     let genericHtmlShouldBeHandled = false;
-    if (emberSettings.directHtmlEnabled && !messageTextElement.querySelector('.ember-generic-html-iframe')) {
-        const originalMessageHtml = getContext().chat[messageId]?.mes;
-        if (originalMessageHtml) {
-             // Check if the message contains HTML tags *other than* those typically used by markdown (like p, strong, em, ul, ol, li, hX, blockquote, hr, code, pre, img, a).
-             // This regex tries to detect more complex or raw HTML structures.
-             // It looks for tags that are less common in typical markdown output or attributes that might indicate raw HTML.
-             const complexHtmlRegex = /<\s*(div|table|form|canvas|svg|section|article|header|footer|nav|aside|dl|dt|dd|figure|figcaption|summary|dialog|menu|input|select|button|textarea)\b|<[a-z]+\s+[^>]*style=["']/i;
+    let rawMessageContent = getContext().chat[messageId]?.mes;
+    let htmlForProcessing = rawMessageContent; // Default to original raw content
 
-            if (complexHtmlRegex.test(originalMessageHtml)) {
+    if (htmlForProcessing) {
+        // Check if the entire raw message content is an HTML markdown code block
+        const htmlCodeBlockMatch = htmlForProcessing.match(/^```html\s*\n([\s\S]*?)\n```\s*$/im);
+        if (htmlCodeBlockMatch && htmlCodeBlockMatch[1]) {
+            htmlForProcessing = htmlCodeBlockMatch[1].trim(); // Use the extracted HTML
+            console.log(`[Ember HTML] Extracted HTML from code block for message ${messageId}`);
+        }
+    }
+
+    if (emberSettings.directHtmlEnabled && !messageTextElement.querySelector('.ember-generic-html-iframe')) {
+        if (htmlForProcessing) { // Ensure there's content to process
+            const complexHtmlRegex = /<\s*(div|table|form|canvas|svg|section|article|header|footer|nav|aside|dl|dt|dd|figure|figcaption|summary|dialog|menu|input|select|button|textarea)\b|<[a-z]+\s+[^>]*style=["']/i;
+            if (complexHtmlRegex.test(htmlForProcessing)) {
                 genericHtmlShouldBeHandled = true;
                 const autoActivateUser = emberSettings.directHtmlProcessingMode === 'both';
                 const autoActivateResponse = emberSettings.directHtmlProcessingMode === 'responses' || autoActivateUser;
 
                 if ((isUserMessage && autoActivateUser) || (!isUserMessage && autoActivateResponse)) {
-                    // Replace content directly in the mes_text element with the iframe
-                    await renderGenericHtmlInFrame(messageTextElement, originalMessageHtml, messageId);
-                    return; // Content is now in an iframe, stop further processing for this element.
-                } else { // Manual mode for Direct HTML: add a button to render
-                    addGenericHtmlRunButton(messageDomElement, messageId);
-                    // Do not return here, as the button only offers to render later.
-                    // However, genericHtmlShouldBeHandled is true, indicating this *was* identified as complex HTML,
-                    // so ClickableInputs should potentially skip its content.
+                    await renderGenericHtmlInFrame(messageTextElement, htmlForProcessing, messageId);
+                    return;
+                } else {
+                    addGenericHtmlRunButton(messageDomElement, messageId, htmlForProcessing);
                 }
             }
         }
     }
 
-    // Clickable Inputs Logic (if no Ember JS and not identified as complex HTML for direct rendering)
-    // Only process if the mes_text element doesn't already contain an Ember iframe (JS or HTML)
     if (!messageTextElement.querySelector('.ember-iframe, .ember-generic-html-iframe') && !genericHtmlShouldBeHandled) {
         if (emberSettings.clickableInputsEnabled) {
             processClickableInputs(messageTextElement);
@@ -743,42 +669,32 @@ async function processMessage(messageId, isUserMessage = false) {
 }
 
 window.addEventListener('message', async (event) => {
-    // Ensure the message is from a trusted source if possible, though sandboxed iframes are less risky
-    // if (event.origin !== window.location.origin) return; // Strict origin check might be too limiting for Blob URLs
-
     if (!event.data || !event.data.type?.startsWith('ember-')) return;
-    const { type, frameId, message, height, injection } = event.data; // Destructure all possible properties
+    const { type, frameId, message, height, injection } = event.data;
     const loadingContainer = document.querySelector(`.ember-loading-container[data-frame-id="${frameId}"]`);
     const finalContainer = document.querySelector(`.ember-container[data-frame-id="${frameId}"]`);
 
     switch (type) {
         case 'ember-error':
-            if (!loadingContainer) return; // Should always have a loading container if error occurs during setup/run
+            if (!loadingContainer) return;
             console.error(`[Ember JS Iframe Error: ${frameId}] ${message}`);
-            // Display error message in the loading container area
             loadingContainer.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span><b>Ember JS Error:</b> ${message.split('\n')[0]}</span>`;
             loadingContainer.style.color = 'var(--text-color-error)'; loadingContainer.style.display = 'flex';
-            // Ensure the final container (which might be empty or failed) is hidden
             if (finalContainer) finalContainer.style.display = 'none';
-
-            // Attempt self-healing if it's an execution error
-            const msgIdErr = frameId.split('-')[2]; // Extract message ID from frameId
+            const msgIdErr = frameId.split('-')[2];
             const codeElErr = document.querySelector(`.mes[mesid="${msgIdErr}"] pre[data-ember-processed="true"] > code`);
             if (codeElErr && message.startsWith('Ember Execution Error:')) {
                 attemptSelfHeal(msgIdErr, codeElErr, message);
             }
             break;
         case 'ember-success':
-            // Hide loading, show final container
             if (loadingContainer) loadingContainer.style.display = 'none';
             if (finalContainer) finalContainer.style.display = 'block';
             break;
         case 'ember-resize':
             if (!finalContainer || height <= 0) break;
-            // Update stored max height and apply if it's the largest seen so far
             const currentMax = emberMaxHeights[frameId] || 0;
-             // Add padding to the height calculation
-            const newHeight = height + 15; // Add 15px padding
+            const newHeight = height + 15;
             if (newHeight > currentMax) {
                  emberMaxHeights[frameId] = newHeight;
                  finalContainer.style.height = newHeight + 'px';
@@ -786,52 +702,33 @@ window.addEventListener('message', async (event) => {
             break;
         case 'ember-inject-js':
             if (injection && typeof injection.content === 'string') {
-                 // Build the slash command string using the received injection data
                 let commandString = `/inject id="${injection.id.replace(/"/g, '\\"')}" depth=${injection.depth} content="${injection.content.replace(/"/g, '\\"')}"`;
                 if (injection.ephemeral) commandString += " ephemeral=true";
                 console.log(`[Ember JS Inject via ${frameId}] Executing: ${commandString}`);
                 try {
-                    // Execute the slash command
                     await SlashCommands.executeCommand(commandString);
                 }
                 catch (ex) { console.error(`[Ember JS Inject via ${frameId}] Failed:`, ex); }
             } else { console.error(`[Ember JS Inject via ${frameId}] Invalid data received for injection:`, injection); }
             break;
-         case 'ember-log': // Optional: if you want to capture console.log from iframe
-             // console.log(`[Ember JS Iframe Log: ${frameId}]`, message);
-             break;
-         case 'ember-warn': // Optional: if you want to capture console.warn
-             // console.warn(`[Ember JS Iframe Warn: ${frameId}]`, message);
-             break;
     }
 });
 
 function cleanupEmberElements(messageId) {
     const msgEl = document.querySelector(`.mes[mesid="${messageId}"]`);
     if (msgEl) {
-        // Remove containers and iframes
         msgEl.querySelectorAll('.ember-container, .ember-loading-container, .ember-generic-html-iframe, .ember-run-html-button').forEach(el => el.remove());
-        // Reset <pre> blocks processed by Ember JS
         msgEl.querySelectorAll('pre[data-ember-processed]').forEach(pre => {
-            pre.style.display = ''; // Show the original code block
-            delete pre.dataset.emberProcessed; // Remove the processing flag
+            pre.style.display = '';
+            delete pre.dataset.emberProcessed;
         });
-        // Reset generic HTML rendering state on the mes_text element
         const mesText = msgEl.querySelector('.mes_text');
         if (mesText) {
              delete mesText.dataset.genericHtmlRendered;
-             // If an iframe was used for generic HTML, restoring the original HTML content might be needed here.
-             // However, current renderGenericHtmlInFrame replaces the content, so removing the iframe is enough for cleanup.
-             // If the user edits the message, SillyTavern re-renders the markdown anyway, effectively restoring original HTML.
         }
-        // Reset clickable inputs state
         msgEl.querySelectorAll(`[${ELEMENT_CLICKABLE_ATTRIBUTE}]`).forEach(el => {
             el.removeAttribute(ELEMENT_CLICKABLE_ATTRIBUTE);
-            // Note: For a truly robust cleanup of event listeners added by `makeElementInteractive`,
-            // you would need to store and remove listeners explicitly. Cloning and replacing the element
-            // is an alternative, but SillyTavern's re-rendering on edit/load often makes this less critical.
         });
-        // Clear stored max height for the message's frames
         Object.keys(emberMaxHeights).forEach(key => {
              if (key.startsWith(`ember-frame-${messageId}-`)) {
                  delete emberMaxHeights[key];
@@ -842,7 +739,6 @@ function cleanupEmberElements(messageId) {
 
 function initializeHealButton() {
     const healButtonHtml = `<div class="mes_button ember-heal-button fa-solid fa-bolt interactable" title="Attempt to fix Ember JavaScript with AI"></div>`;
-    // Add heal button to the message template if not already present
     if ($('#message_template .extraMesButtons .ember-heal-button').length === 0) {
         $('#message_template .extraMesButtons').prepend(healButtonHtml);
     }
@@ -850,211 +746,148 @@ function initializeHealButton() {
 
 function loadSettings() {
     if (global_extension_settings && global_extension_settings[MODULE_NAME]) {
-        // Merge stored settings, ensuring defaults for any missing keys
         emberSettings = {
-            ...emberSettings, // Start with current defaults
-            ...global_extension_settings[MODULE_NAME] // Overwrite with stored settings
+            ...emberSettings,
+            ...global_extension_settings[MODULE_NAME]
         };
     }
-    // Ensure prompt setting has a default value if it somehow ended up empty
     emberSettings.clickableInputsPrompt = emberSettings.clickableInputsPrompt || DEFAULT_EMBER_JS_INSTRUCTIONS;
 
-
-    // Update UI elements based on loaded settings
     $('#ember-direct-html-enabled').prop('checked', emberSettings.directHtmlEnabled);
     $('#ember-direct-html-processing-mode').val(emberSettings.directHtmlProcessingMode);
-    $('#ember-clickable-inputs-enabled').prop('checked', emberSettings.clickableInputsEnabled); // Controls clickable raw HTML feature
-    $('#ember-clickable-inputs-prompt-enabled').prop('checked', emberSettings.clickableInputsPromptEnabled); // Controls JS/API instruction injection
-    $('#ember-clickable-inputs-prompt').val(emberSettings.clickableInputsPrompt); // Set textarea content
+    $('#ember-clickable-inputs-enabled').prop('checked', emberSettings.clickableInputsEnabled);
+    $('#ember-clickable-inputs-prompt-enabled').prop('checked', emberSettings.clickableInputsPromptEnabled);
+    $('#ember-clickable-inputs-prompt').val(emberSettings.clickableInputsPrompt);
 
-    // Set initial disabled states based on loaded settings
     const rawHtmlFeatureEnabled = emberSettings.clickableInputsEnabled;
     const promptInjectionEnabled = emberSettings.clickableInputsPromptEnabled;
-
-    // The prompt injection settings (checkbox, textarea, restore button) are only relevant
-    // and interactive if the main 'clickable inputs' *section* (which we're repurposing
-    // slightly to also house the JS instructions setting) is conceptually "enabled".
-    // We'll link the disabled state of the prompt injection options to the 'clickableInputsEnabled' checkbox.
     $('#ember-clickable-inputs-prompt-enabled').prop('disabled', !rawHtmlFeatureEnabled);
     const promptTextareaDisabled = !rawHtmlFeatureEnabled || !promptInjectionEnabled;
     $('#ember-clickable-inputs-prompt').prop('disabled', promptTextareaDisabled);
     $('#ember-clickable-inputs-prompt-restore').css({ 'pointer-events': promptTextareaDisabled ? 'none' : '', opacity: promptTextareaDisabled ? '0.5' : '' });
 
-    // Update the global prompt injection based on the loaded state
     updateEmberPromptInjection();
 }
 
 function saveSettings() {
     if (!global_extension_settings[MODULE_NAME]) global_extension_settings[MODULE_NAME] = {};
-    // Save the current state of emberSettings
     Object.assign(global_extension_settings[MODULE_NAME], emberSettings);
-    getContext().saveSettingsDebounced(); // Use SillyTavern's debounced save function
-    // After saving settings that affect the prompt, update the prompt injection
+    getContext().saveSettingsDebounced();
     updateEmberPromptInjection();
 }
 
-// Handler for message rendering events
 const handleMessageRender = (id, isUser) => {
-    // Use a small delay to ensure the DOM for the message is fully ready
     setTimeout(() => {
         const messageData = getContext().chat[id];
-        // Check if message data still exists (e.g., wasn't deleted during the timeout)
         if (messageData) {
              processMessage(id, isUser);
         }
-    }, 50); // Adjust delay if needed
+    }, 50);
 };
 
-// Function to process all existing messages in the chat
 function processExistingMessages() {
-    // Find all message elements in the chat history
     document.querySelectorAll('#chat .mes').forEach(mes => {
         const id = Number(mes.getAttribute('mesid'));
-        // Clean up any previous Ember processing elements before re-processing
         cleanupEmberElements(id);
         const messageData = getContext().chat[id];
-        // Check if message data still exists in the chat context before rendering
         if (messageData) {
              handleMessageRender(id, mes.classList.contains('user_mes'));
         }
     });
 }
 
-// Main function to run when the document is ready
 $(document).ready(async function () {
-    // Attempt to load settings HTML and append it to the settings panel
     try {
         const settingsHtmlPath = `scripts/extensions/third-party/${MODULE_NAME}/settings.html`;
         const response = await fetch(settingsHtmlPath);
         if (!response.ok) {
-             // Log the error with the specific path attempted
             throw new Error(`Failed to fetch ${settingsHtmlPath}: ${response.status} ${response.statusText}`);
         }
         const settingsHtmlContent = await response.text();
         $('#extensions_settings').append(settingsHtmlContent);
         console.log(`[Ember] Settings HTML loaded from "${settingsHtmlPath}" and appended.`);
     } catch (err) {
-         // Log the error clearly if settings HTML fails to load
         console.error(`[Ember] Failed to load or append settings HTML. Please check if settings.html exists at the correct path: scripts/extensions/third-party/${MODULE_NAME}/settings.html. Error:`, err);
     }
 
-    // Load settings from storage (or apply defaults) after settings HTML is loaded
     loadSettings();
-    // Add the AI heal button template to new messages
     initializeHealButton();
 
-    // --- Settings Event Listeners ---
-
-    // Listener for the "Enable Direct HTML Rendering" checkbox
     $('#ember-direct-html-enabled').on('change', function() {
         emberSettings.directHtmlEnabled = $(this).is(':checked');
         saveSettings();
-        processExistingMessages(); // Re-process messages to apply/remove HTML rendering
+        processExistingMessages();
     });
 
-    // Listener for the "HTML Processing Mode" select dropdown
     $('#ember-direct-html-processing-mode').on('change', function() {
         emberSettings.directHtmlProcessingMode = $(this).val();
         saveSettings();
-        processExistingMessages(); // Re-process messages to apply/change automatic rendering
+        processExistingMessages();
     });
 
-    // Listener for the "Enable Clickable Raw HTML Inputs" checkbox
     $('#ember-clickable-inputs-enabled').on('change', function() {
         emberSettings.clickableInputsEnabled = $(this).is(':checked');
         const rawHtmlFeatureEnabled = emberSettings.clickableInputsEnabled;
-
-        // Disable prompt injection options if the main feature is disabled
         $('#ember-clickable-inputs-prompt-enabled').prop('disabled', !rawHtmlFeatureEnabled);
-        const promptInjectionEnabled = $('#ember-clickable-inputs-prompt-enabled').is(':checked'); // Get current state
+        const promptInjectionEnabled = $('#ember-clickable-inputs-prompt-enabled').is(':checked');
         const promptTextareaDisabled = !rawHtmlFeatureEnabled || !promptInjectionEnabled;
         $('#ember-clickable-inputs-prompt').prop('disabled', promptTextareaDisabled);
         $('#ember-clickable-inputs-prompt-restore').css({ 'pointer-events': promptTextareaDisabled ? 'none' : '', opacity: promptTextareaDisabled ? '0.5' : '' });
-
-        // If the main feature is disabled, ensure the prompt injection checkbox is unchecked as well
          if (!rawHtmlFeatureEnabled) {
              $('#ember-clickable-inputs-prompt-enabled').prop('checked', false);
-             emberSettings.clickableInputsPromptEnabled = false; // Update setting state
+             emberSettings.clickableInputsPromptEnabled = false;
          }
-
-        saveSettings(); // Saves all current emberSettings, including the prompt injection state
-        processExistingMessages(); // Re-process messages to apply/remove clickable elements
+        saveSettings();
+        processExistingMessages();
     });
 
-    // Listener for the "Inject Ember JS/API Instructions" checkbox
     $('#ember-clickable-inputs-prompt-enabled').on('change', function() {
         emberSettings.clickableInputsPromptEnabled = $(this).is(':checked');
-        const rawHtmlFeatureEnabled = emberSettings.clickableInputsEnabled; // Get state of main feature checkbox
+        const rawHtmlFeatureEnabled = emberSettings.clickableInputsEnabled;
         const promptInjectionEnabled = emberSettings.clickableInputsPromptEnabled;
-
-        // Textarea and restore button disabled state depends on *both* checkboxes
         const promptTextareaDisabled = !rawHtmlFeatureEnabled || !promptInjectionEnabled;
         $('#ember-clickable-inputs-prompt').prop('disabled', promptTextareaDisabled);
         $('#ember-clickable-inputs-prompt-restore').css({ 'pointer-events': promptTextareaDisabled ? 'none' : '', opacity: promptTextareaDisabled ? '0.5' : '' });
-
-        saveSettings(); // Saves all current emberSettings
-        // updateEmberPromptInjection() is called within saveSettings() now
+        saveSettings();
     });
 
-    // Listener for input changes in the instructions textarea
     $('#ember-clickable-inputs-prompt').on('input', function() {
         emberSettings.clickableInputsPrompt = $(this).val();
-        saveSettings(); // Saves and triggers updateEmberPromptInjection()
+        saveSettings();
     });
 
-    // Listener for the "Restore Default Instructions" button
     $('#ember-clickable-inputs-prompt-restore').on('click', function() {
-         // Only restore if the main feature and prompt injection are conceptually enabled (UI not disabled)
         if (!emberSettings.clickableInputsEnabled || !emberSettings.clickableInputsPromptEnabled) return;
-
         $('#ember-clickable-inputs-prompt').val(DEFAULT_EMBER_JS_INSTRUCTIONS);
         emberSettings.clickableInputsPrompt = DEFAULT_EMBER_JS_INSTRUCTIONS;
-        saveSettings(); // Saves and triggers updateEmberPromptInjection()
+        saveSettings();
     });
 
-
-    // --- Message Event Listeners ---
-
-    // Process messages when they are rendered
     eventSource.on(event_types.USER_MESSAGE_RENDERED, (id) => handleMessageRender(id, true));
     eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (id) => handleMessageRender(id, false));
-
-    // Re-process messages when they are edited
     eventSource.on(event_types.MESSAGE_EDITED, (id) => {
-        // Clean up existing Ember elements for this message before re-processing
         cleanupEmberElements(id);
         const msg = getContext().chat[id];
-        // Ensure message still exists before handling
         if (msg) handleMessageRender(id, msg.is_user);
     });
-
-    // Process all existing messages when the chat is loaded
     eventSource.on(event_types.CHAT_LOADED, processExistingMessages);
-
-    // Process new or reloaded messages when the chat changes
     eventSource.on(event_types.CHAT_CHANGED, (data) => {
          if (data?.type === 'new') {
-             // If it's a new message event, handle the specific new messages by ID
              data.ids.forEach(id => { const msg = getContext().chat[id]; if(msg) handleMessageRender(id, msg.is_user); });
          } else if (!data || !data?.type) {
-             // If it's a full chat reload or unknown change, re-process all messages
              processExistingMessages();
          }
      });
 
-    // --- Heal Button Listener ---
     $(document).on('click', '.ember-heal-button', function() {
         const messageId = $(this).closest('.mes').attr('mesid');
-        // Find the code element associated with the Ember JS processing
         const codeElement = document.querySelector(`.mes[mesid="${messageId}"] .mes_text pre[data-ember-processed="true"] > code`);
         const errorMessageElement = $(this).closest('.mes').find('.ember-loading-container[style*="color: var(--text-color-error)"]');
         const errorMessage = errorMessageElement.length > 0 ? errorMessageElement.text().replace('Ember JS Error:', '').trim() : 'Manual heal requested.';
 
-
         if (codeElement) {
              attemptSelfHeal(messageId, codeElement, errorMessage);
         } else {
-            // If no currently processed Ember JS block found, inform the user
             alert('Ember: No active Ember JS code block (with frontmatter) found in this message to heal.');
         }
     });
