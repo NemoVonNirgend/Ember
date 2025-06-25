@@ -1,19 +1,18 @@
-<!-- FINAL settings.html for Ember -->
 <div class="world_entry">
     <div class="inline-drawer wide100p">
         <div class="inline-drawer-header">
             <div class="world_entry_icon fa-solid fa-fire-flame-curved"></div>
-            <div class="world_entry_name">Ember</div>
+            <div class="world_entry_name">Ember (Enhanced)</div>
             <div class="inline-drawer-toggle fa-fw fa-solid fa-circle-chevron-down inline-drawer-icon down" title="Toggle Ember settings"></div>
         </div>
 
         <div class="inline-drawer-content" style="display: none;">
             <div id="ember-settings-content">
+                <h4>Ember JavaScript Execution</h4>
                 <p class="description">
-                    Ember includes a built-in set of trusted JavaScript libraries. To create an interactive element, use a standard `javascript` code block and add a frontmatter section (`---`) at the top to request libraries.
+                    Ember allows JavaScript in `javascript` code blocks to run in a sandbox if they include frontmatter. These blocks can also inject data into context using `ember.inject()`.
                 </p>
                 <div id="ember-library-list" style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
-                    <!-- This list is for informational purposes only -->
                     <div class="ember-library-display-entry"><code>d3</code> <small>(D3.js)</small></div>
                     <div class="ember-library-display-entry"><code>three</code> <small>(Three.js)</small></div>
                     <div class="ember-library-display-entry"><code>p5</code> <small>(p5.js)</small></div>
@@ -21,19 +20,87 @@
                     <div class="ember-library-display-entry"><code>chartjs</code> <small>(Chart.js)</small></div>
                     <div class="ember-library-display-entry"><code>matter</code> <small>(Matter.js)</small></div>
                 </div>
+                <!-- Corrected structure for p and pre -->
                 <p class="description" style="margin-top: 15px;">
                     Example usage in a `javascript` block:
+                </p>
 <pre style="white-space: pre-wrap; background-color: var(--background-color); padding: 5px; border-radius: 5px;">---
 libs:
   - three
-  - anime
 ---
 // Your code here...
-// It will be given a 'root' element to append content to.
-const renderer = new THREE.WebGLRenderer();
-root.appendChild(renderer.domElement);
-// ...etc</pre>
+const scene = new THREE.Scene();
+// ...
+// Example of injecting context:
+if (someCondition) {
+  ember.inject({ content: 'Player discovered the secret passage!' });
+}</pre>
+
+
+                <hr>
+                <h4>Direct HTML Rendering</h4>
+                <p class="description">
+                    For messages that do <em>not</em> contain Ember JavaScript blocks, Ember can render general HTML content directly.
                 </p>
+                <div class="setting-row">
+                    <label class="checkbox_label">
+                        <input type="checkbox" id="ember-direct-html-enabled" />
+                        Enable Direct HTML Rendering
+                    </label>
+                </div>
+                <div class="setting-row">
+                    <label for="ember-direct-html-processing-mode">HTML Processing Mode</label>
+                    <select class="text_pole" id="ember-direct-html-processing-mode">
+                        <option value="off">Manual (Click <i class="fa-solid fa-code"></i> button)</option>
+                        <option value="responses">Automatic for AI Responses</option>
+                        <option value="both">Automatic for All Messages</option>
+                    </select>
+                    <div class="description">Controls when non-Ember HTML content is automatically rendered.</div>
+                </div>
+
+                <hr>
+                <h4>Clickable Inputs & Context Injection</h4>
+                <p class="description">
+                    For messages that do <em>not</em> contain Ember JS blocks or rendered Generic HTML, Ember can make raw HTML form elements interactive. Buttons can also be configured to inject context using `data-inject-content`.
+                </p>
+                <div class="setting-row">
+                    <label class="checkbox_label">
+                        <input type="checkbox" id="ember-clickable-inputs-enabled" />
+                        Enable Clickable Raw HTML Inputs
+                    </label>
+                    <div class="description" style="margin-top: 0;">Makes raw HTML form elements (inputs, selects, textareas, buttons) interactive, allowing interaction to send messages or inject context.</div>
+                </div>
+
+                <hr>
+                <!-- NEW SECTION TITLE AND BUTTON LABEL -->
+                <h4>Ember JS/API Instruction Injection</h4>
+                 <p class="description">Injects instructions into the prompt for the LLM on how to generate interactive Ember JS blocks and utilize available APIs (Text Generation, TTS, Image Generation).</p>
+                <div class="setting-row">
+                     <label class="checkbox_label">
+                         <input type="checkbox" id="ember-clickable-inputs-prompt-enabled" />
+                         Inject Ember JS/API Instructions
+                     </label>
+                     <div class="description" style="margin-top: 0;">When enabled, the instructions below will be added to the prompt.</div>
+                </div>
+                <div class="flex-container justifyspacebetween alignitemscenter setting-row">
+                    <span>Instructions for generating JS with Ember:</span>
+                    <div
+                        title="Restore default instructions"
+                        class="menu_button flex1 margin0 interactable"
+                        id="ember-clickable-inputs-prompt-restore"
+                        tabindex="0"
+                    >
+                        <!-- NEW BUTTON LABEL -->
+                        <span>Restore Default Instructions</span>
+                    </div>
+                </div>
+                <textarea
+                    placeholder="Instructions for generating interactive Ember JS blocks and using the API endpoints."
+                    rows="8"
+                    class="text_pole textarea_compact"
+                    id="ember-clickable-inputs-prompt"
+                ></textarea>
+                 <div class="description">This content is injected into the prompt when enabled above. It guides the LLM on how to create interactive Ember JS blocks using frontmatter, include libraries, append to `#root`, use `ember.inject()`, and access Pollinations API endpoints via JS.</div>
             </div>
         </div>
     </div>
