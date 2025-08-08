@@ -3,6 +3,7 @@
 
 import { getContext, renderExtensionTemplateAsync, extension_settings as global_extension_settings } from '../../../extensions.js';
 import { messageFormatting, addCopyToCodeBlocks, setExtensionPrompt, extension_prompt_types, sendMessageAsUser, Generate } from '../../../../script.js';
+import { postProcessMessage, analyzeHtmlContent, safeParseHtml, extractPreservableContent, restorePreservableContent, testHtmlProcessing } from './htmlProcessor.js';
 
 const { eventSource, event_types, SlashCommands } = getContext();
 const MODULE_NAME = 'Ember'; // Used for loading settings HTML and lib paths
@@ -177,6 +178,7 @@ const emberMaxHeights = {};
 let emberSettings = {
     directHtmlEnabled: true,
     directHtmlProcessingMode: 'both',
+    enhancedHtmlProcessing: true, // New WeatherPack-inspired HTML processing
     clickableInputsEnabled: true,
     clickableInputsPromptEnabled: true,
     clickableInputsPrompt: DEFAULT_EMBER_JS_INSTRUCTIONS,
@@ -339,7 +341,21 @@ function processClickableInputs(messageTextElement) {
 
 async function renderGenericHtmlInFrame(targetElement, htmlString, messageId) {
     if (!targetElement || targetElement.dataset.genericHtmlRendered === 'true') return;
-    console.log(`[Ember HTML] Rendering generic HTML for message ${messageId}`);
+    console.log(`[Ember HTML] Rendering generic HTML for message ${messageId} with enhanced processing`);
+    
+    // Analyze HTML content before rendering
+    const htmlAnalysis = analyzeHtmlContent(htmlString);
+    console.log(`[Ember HTML] Content analysis for message ${messageId}:`, htmlAnalysis);
+    
+    // Use enhanced HTML processing to preserve structure
+    let processedHtml;
+    if (htmlAnalysis.isSignificantHtml) {
+        console.log(`[Ember HTML] Applying enhanced HTML processing for significant content`);
+        processedHtml = postProcessMessage(messageId, '', htmlString, (text) => text);
+    } else {
+        processedHtml = htmlString;
+    }
+    
     const originalHtmlInDom = targetElement.innerHTML; // Store current DOM content for potential restore
     targetElement.innerHTML = ''; // Clear target for iframe
     const iframe = document.createElement('iframe');
@@ -415,7 +431,7 @@ async function renderGenericHtmlInFrame(targetElement, htmlString, messageId) {
         pre, code { background-color: var(--background-color, #eee); padding: 2px 4px; border-radius: 4px; }
         pre { display: block; margin: 1em 0; padding: 10px; overflow-x: auto; }
         blockquote { margin: 1em 40px; padding: 0 15px; border-left: 4px solid var(--SmartThemeBorderColor, #ccc); opacity: 0.8; }
-    </style></head><body>${htmlString}</body></html>`;
+    </style></head><body>${processedHtml}</body></html>`;
     try {
         targetElement.appendChild(iframe); // Append iframe *before* writing to it
         if (iframe.contentWindow) { // Check again just before use
@@ -1222,8 +1238,10 @@ async function processMessage(messageId, isUserMessage = false) {
 
     if (emberSettings.directHtmlEnabled && !messageTextElement.querySelector('.ember-generic-html-iframe')) {
         if (htmlForProcessing) { // Ensure there's content to process
-            const complexHtmlRegex = /<\s*(div|table|form|canvas|svg|section|article|header|footer|nav|aside|dl|dt|dd|figure|figcaption|summary|dialog|menu|input|select|button|textarea)\b|<[a-z]+\s+[^>]*style=["']/i;
-            if (complexHtmlRegex.test(htmlForProcessing)) {
+            // Heuristic to prevent rendering the chat's own UI as HTML
+            const isChatMessageUI = /class="mes_block"|class="mes_text"/.test(htmlForProcessing);
+            const complexHtmlRegex = /^\s*<([a-z][a-z0-9]*)\b[^>]*>/i;
+            if (!isChatMessageUI && complexHtmlRegex.test(htmlForProcessing)) {
                 genericHtmlShouldBeHandled = true;
                 const autoActivateUser = emberSettings.directHtmlProcessingMode === 'both';
                 const autoActivateResponse = emberSettings.directHtmlProcessingMode === 'responses' || autoActivateUser;
@@ -1311,6 +1329,7 @@ function cleanupEmberElements(messageId) {
         const mesText = msgEl.querySelector('.mes_text');
         if (mesText) {
              delete mesText.dataset.genericHtmlRendered;
+             delete mesText.dataset.emberHtmlProcessed; // Clean up HTML processing flag
         }
         msgEl.querySelectorAll(`[${ELEMENT_CLICKABLE_ATTRIBUTE}]`).forEach(el => {
             el.removeAttribute(ELEMENT_CLICKABLE_ATTRIBUTE);
@@ -1341,6 +1360,7 @@ function loadSettings() {
 
     $('#ember-direct-html-enabled').prop('checked', emberSettings.directHtmlEnabled);
     $('#ember-direct-html-processing-mode').val(emberSettings.directHtmlProcessingMode);
+    $('#ember-enhanced-html-processing').prop('checked', emberSettings.enhancedHtmlProcessing);
     $('#ember-clickable-inputs-enabled').prop('checked', emberSettings.clickableInputsEnabled);
     $('#ember-clickable-inputs-prompt-enabled').prop('checked', emberSettings.clickableInputsPromptEnabled);
     $('#ember-clickable-inputs-prompt').val(emberSettings.clickableInputsPrompt);
@@ -1362,11 +1382,86 @@ function saveSettings() {
     updateEmberPromptInjection();
 }
 
+/**
+ * Enhanced message processing that applies WeatherPack-style HTML preservation
+ */
+function enhanceMessageWithHtmlProcessing(messageId) {
+    console.log(`[Ember HTML Enhancement] Processing message ${messageId} with HTML preservation`);
+    
+    const messageElement = document.querySelector(`.mes[mesid="${messageId}"]`);
+    if (!messageElement) {
+        console.log(`[Ember HTML Enhancement] Message element ${messageId} not found`);
+        return false;
+    }
+    
+    const messageTextElement = messageElement.querySelector('.mes_text');
+    if (!messageTextElement) {
+        console.log(`[Ember HTML Enhancement] Message text element ${messageId} not found`);
+        return false;
+    }
+    
+    // Skip if already processed or is being edited
+    if (messageTextElement.dataset.emberHtmlProcessed === 'true' || 
+        messageTextElement.querySelector('.edit_textarea')) {
+        return false;
+    }
+    
+    const messageData = getContext().chat[messageId];
+    if (!messageData || !messageData.mes) {
+        console.log(`[Ember HTML Enhancement] No message data found for ${messageId}`);
+        return false;
+    }
+    
+    const originalContent = messageData.mes;
+    const htmlAnalysis = analyzeHtmlContent(originalContent);
+    
+    // Only apply enhanced processing if enabled and significant HTML is detected
+    if (emberSettings.enhancedHtmlProcessing && htmlAnalysis.isSignificantHtml) {
+        console.log(`[Ember HTML Enhancement] Applying enhanced HTML processing to message ${messageId}`);
+        console.log(`[Ember HTML Enhancement] HTML analysis:`, htmlAnalysis);
+        
+        try {
+            // Use the WeatherPack-inspired post-processing
+            const characterName = messageData.is_user ? getContext().name2 : messageData.name;
+            const enhancedContent = postProcessMessage(
+                messageId, 
+                characterName, 
+                originalContent, 
+                messageFormatting
+            );
+            
+            // Update the DOM with enhanced content
+            messageTextElement.innerHTML = enhancedContent;
+            messageTextElement.dataset.emberHtmlProcessed = 'true';
+            
+            // Re-add copy buttons for any code blocks
+            addCopyToCodeBlocks(messageTextElement);
+            
+            console.log(`[Ember HTML Enhancement] Successfully enhanced message ${messageId}`);
+            return true;
+            
+        } catch (error) {
+            console.error(`[Ember HTML Enhancement] Error processing message ${messageId}:`, error);
+            return false;
+        }
+    }
+    
+    return false;
+}
+
 const handleMessageRender = (id, isUser) => {
     setTimeout(() => {
         const messageData = getContext().chat[id];
         if (messageData) {
-             processMessage(id, isUser);
+            // Try enhanced HTML processing first
+            const wasEnhanced = enhanceMessageWithHtmlProcessing(id);
+            
+            // Always run the regular Ember processing (for JS blocks, etc.)
+            processMessage(id, isUser);
+            
+            if (wasEnhanced) {
+                console.log(`[Ember] Message ${id} received both HTML enhancement and regular processing`);
+            }
         }
     }, 50);
 };
@@ -1413,6 +1508,12 @@ $(document).ready(async function () {
 
     $('#ember-direct-html-processing-mode').on('change', function() {
         emberSettings.directHtmlProcessingMode = $(this).val();
+        saveSettings();
+        processExistingMessages();
+    });
+
+    $('#ember-enhanced-html-processing').on('change', function() {
+        emberSettings.enhancedHtmlProcessing = $(this).is(':checked');
         saveSettings();
         processExistingMessages();
     });
@@ -1485,6 +1586,16 @@ $(document).ready(async function () {
     });
 
     console.log('[Ember] Extension loaded successfully! Ready to process JavaScript code blocks.');
+    console.log('[Ember] WeatherPack-inspired HTML processing system enabled. This provides:');
+    console.log('[Ember] - Robust HTML block extraction and preservation');
+    console.log('[Ember] - Selective text formatting (only applied to non-HTML content)');  
+    console.log('[Ember] - Enhanced content analysis for proper HTML/JS detection');
+    console.log('[Ember] - Protection against text processing corruption of HTML elements');
+    
+    // Run HTML processing self-tests
+    if (emberSettings.enhancedHtmlProcessing) {
+        testHtmlProcessing();
+    }
     
     // Test if the extension is working by processing existing messages
     processExistingMessages();
