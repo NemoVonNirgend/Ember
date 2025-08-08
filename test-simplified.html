@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ember Simplified Test</title>
+</head>
+<body>
+    <h1>Test Cases for Simplified Ember</h1>
+    
+    <h2>Test 1: Simple Canvas Drawing</h2>
+    <div class="mes_text">
+        <pre><code class="language-javascript">
+const canvas = document.createElement('canvas');
+canvas.width = 400;
+canvas.height = 200;
+canvas.style.border = '1px solid black';
+root.appendChild(canvas);
+
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = 'red';
+ctx.fillRect(50, 50, 100, 50);
+        </code></pre>
+    </div>
+
+    <h2>Test 2: Using Chart.js Library</h2>
+    <div class="mes_text">
+        <pre><code class="language-javascript">
+const canvas = document.createElement('canvas');
+root.appendChild(canvas);
+
+new Chart(canvas, {
+    type: 'bar',
+    data: {
+        labels: ['A', 'B', 'C'],
+        datasets: [{
+            label: 'Test Data',
+            data: [12, 19, 3],
+            backgroundColor: ['red', 'blue', 'green']
+        }]
+    }
+});
+        </code></pre>
+    </div>
+
+    <h2>Test 3: Simple Animation</h2>
+    <div class="mes_text">
+        <pre><code class="language-javascript">
+const div = document.createElement('div');
+div.style.width = '50px';
+div.style.height = '50px';
+div.style.backgroundColor = 'blue';
+div.style.position = 'relative';
+div.textContent = 'Hello!';
+root.appendChild(div);
+
+// Simple animation
+let position = 0;
+const animate = () => {
+    position += 1;
+    div.style.left = position + 'px';
+    if (position < 200) {
+        requestAnimationFrame(animate);
+    }
+};
+animate();
+        </code></pre>
+    </div>
+
+    <p>All these examples should work without any frontmatter or special formatting!</p>
+</body>
+</html>

@@ -16,38 +16,30 @@ const BUILT_IN_LIBRARIES = [
 ];
 
 // Instructions for the AI to generate correct Ember JS blocks and use APIs
-const DEFAULT_EMBER_JS_INSTRUCTIONS = `### [System Directive: Interactive Code with Ember]
+const DEFAULT_EMBER_JS_INSTRUCTIONS = `### [System Directive: Interactive JavaScript Code with Ember]
 
-You have two ways to create interactive content: full JavaScript blocks for complex applications, and simple raw HTML for basic inputs and buttons.
-
----
-
-### Part 1: Ember JavaScript Blocks
-
-To generate complex interactive elements (like charts, games, or dynamic API-driven content), use a standard \`javascript\` code block.
-
-**To make the code interactive, you MUST include a frontmatter section at the top.** This section starts and ends with \`---\`.
+**IMPORTANT: Write JavaScript code in standard \`\`\`javascript code blocks. No special formatting required!**
 
 **Execution Environment:**
-*   Your code will run in a secure sandbox.
-*   A \`div\` element named \`root\` is provided. **You MUST append all your created elements to \`root\`** for them to be visible.
-*   If you need libraries, request them by alias in the \`libs:\` section of the frontmatter.
+*   Your code runs in a secure sandbox with a \`root\` element available
+*   **ALWAYS append elements to \`root\`:** \`root.appendChild(yourElement)\`
+*   All libraries are automatically loaded: \`d3\`, \`three\`, \`p5\`, \`anime\`, \`Chart\`, \`Matter\`
+*   No imports needed - libraries are globally available
 
-**Available Libraries:** \`d3\`, \`three\`, \`p5\`, \`anime\`, \`chartjs\`, \`matter\`.
+**How to Write Code:**
+1. Use regular \`\`\`javascript code blocks (NOT HTML with embedded JS)
+2. Create elements with \`document.createElement()\`
+3. Always append to \`root\`: \`root.appendChild(element)\`
+4. All libraries work immediately (no imports needed)
+
+**Available Libraries:** \`d3\`, \`three\`, \`p5\`, \`anime\`, \`Chart\` (from chartjs), \`Matter\`.
 
 **Context Injection from JavaScript:**
-*   Your script can inject information directly into the chat's context using the global \`ember.inject()\` function. This is useful for updating story state or recording player actions.
+*   Your script can inject information directly into the chat's context using the global \`ember.inject()\` function.
 *   **Function Signature:** \`ember.inject({ id: '...', depth: 0, content: '...', ephemeral: false });\`
-    *   \`content\`: (Required) The text string to inject.
-    *   \`id\`: (Optional, defaults to 'ember_js_block') A unique identifier for the injection.
-    *   \`depth\`: (Optional, defaults to 0) The injection depth.
-    *   \`ephemeral\`: (Optional, defaults to false) Set to \`true\` to make the injection temporary.
-*   **Example (Chart with Context Injection):**
+
+*   **Example (Simple Chart):**
     \`\`\`javascript
-    ---
-    libs:
-      - chartjs
-    ---
     const canvas = document.createElement('canvas');
     root.appendChild(canvas);
 
@@ -63,7 +55,6 @@ To generate complex interactive elements (like charts, games, or dynamic API-dri
       }
     });
 
-    // Inject context after creating the chart
     ember.inject({ content: 'A chart of poll results has been displayed.' });
     \`\`\`
 
@@ -161,12 +152,10 @@ Your task is to analyze the provided JavaScript code, which has failed to execut
 
 **CRITICAL INSTRUCTIONS:**
 1.  **OUTPUT FORMAT:** Your response MUST contain ONLY the complete, corrected JavaScript code inside a single \`javascript\` markdown block. Do NOT add any explanations, apologies, or conversational text before or after the code block.
-2.  **CODE STRUCTURE:** The corrected script MUST adhere to the Ember format. This means it MUST start with a frontmatter section.
 
 **EMBER JS ENVIRONMENT RULES (CHECK FOR THESE ERRORS):**
-*   **Frontmatter is Mandatory:** The script MUST begin with a frontmatter block enclosed in \`---\`. If it's missing, add it. Example: \`---\nlibs:\n  - d3\n---\`
 *   **Use the 'root' Element:** A \`div\` with the id \`root\` is provided. All visual output (canvases, divs, svgs, etc.) MUST be appended to this \`root\` element.
-*   **Available Libraries:** Only request libraries from this list: \`d3\`, \`three\`, \`p5\`, \`anime\`, \`chartjs\`, \`matter\`.
+*   **Available Libraries:** \`d3\`, \`three\`, \`p5\`, \`anime\`, \`Chart\`, \`Matter\` are automatically loaded and ready to use.
 *   **Context Injection:** Your script can inject information into SillyTavern's context using the global \`ember.inject()\` function.
     *   Call \`ember.inject({ id: 'your_id', depth: 0, content: 'Your information here', ephemeral: false });\`
     *   \`id\`: (Optional, defaults to 'ember_js_block') The ID for the injection.
@@ -197,10 +186,41 @@ function updateEmberPromptInjection() {
     const promptId = "emberinstructions";
     const promptDepth = 4;
 
+    console.log(`[Ember Debug] Updating prompt injection...`);
+    console.log(`[Ember Debug] clickableInputsEnabled: ${emberSettings.clickableInputsEnabled}`);
+    console.log(`[Ember Debug] clickableInputsPromptEnabled: ${emberSettings.clickableInputsPromptEnabled}`);
+
     if (emberSettings.clickableInputsEnabled && emberSettings.clickableInputsPromptEnabled) {
+        console.log(`[Ember Debug] Setting extension prompt with ID: ${promptId}`);
+        console.log(`[Ember Debug] Prompt content length: ${emberSettings.clickableInputsPrompt.length} chars`);
+        console.log(`[Ember Debug] extension_prompt_types.IN_PROMPT value:`, extension_prompt_types.IN_PROMPT);
+        console.log(`[Ember Debug] Available prompt types:`, extension_prompt_types);
+        
+        // Try multiple prompt types to see which one works
+        console.log(`[Ember Debug] Attempting to set prompt with IN_PROMPT type...`);
         setExtensionPrompt(promptId, emberSettings.clickableInputsPrompt, extension_prompt_types.IN_PROMPT, promptDepth);
+        console.log(`[Ember Debug] Extension prompt set with IN_PROMPT successfully`);
+        
+        // Also try SYSTEM_PROMPT as backup
+        if (extension_prompt_types.SYSTEM_PROMPT !== undefined) {
+            console.log(`[Ember Debug] Also setting with SYSTEM_PROMPT type as backup...`);
+            setExtensionPrompt(promptId + "_system", emberSettings.clickableInputsPrompt, extension_prompt_types.SYSTEM_PROMPT, promptDepth);
+            console.log(`[Ember Debug] Extension prompt set with SYSTEM_PROMPT successfully`);
+        }
+        
+        // Also try BEFORE_PROMPT as backup
+        if (extension_prompt_types.BEFORE_PROMPT !== undefined) {
+            console.log(`[Ember Debug] Also setting with BEFORE_PROMPT type as backup...`);
+            setExtensionPrompt(promptId + "_before", emberSettings.clickableInputsPrompt, extension_prompt_types.BEFORE_PROMPT, promptDepth);
+            console.log(`[Ember Debug] Extension prompt set with BEFORE_PROMPT successfully`);
+        }
+        
+        console.log(`[Ember Debug] All prompt injection attempts completed`);
     } else {
+        console.log(`[Ember Debug] Clearing extension prompt (settings disabled)`);
         setExtensionPrompt(promptId, "");
+        setExtensionPrompt(promptId + "_system", "");
+        setExtensionPrompt(promptId + "_before", "");
     }
 }
 
@@ -506,16 +526,335 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Unicode-safe hash function for deduplication
+function simpleHash(str) {
+    let hash = 0;
+    if (str.length === 0) return hash;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+}
+
+
+// WeatherPack-inspired comprehensive JavaScript detection function
+function detectJavaScriptContent(className, codeContent) {
+    console.log(`[Ember Debug] Analyzing content for JavaScript patterns...`);
+    
+    // Check if it's a JavaScript code block by class name first
+    const isDirectJavaScript = className.includes('javascript') || className.includes('lang-js') || className.includes('js');
+    
+    // Check if it's HTML containing JavaScript (script tags OR ES6 imports OR JS code patterns)
+    const hasScriptTags = /<script\b[^>]*>[\s\S]*?<\/script>/i.test(codeContent);
+    const hasES6Imports = /\bimport\s+.*\s+from\s+['"][^'"]+['"]/.test(codeContent);
+    const hasJSInHTML = /\b(const|let|var|function|=>\||addEventListener|document\.)\b/.test(codeContent);
+    
+    const isHtmlWithJavaScript = (className.includes('html') || className.includes('xml')) &&
+                               (hasScriptTags || hasES6Imports || hasJSInHTML);
+    
+    // Enhanced content-based detection inspired by WeatherPack's thorough analysis
+    const hasJSKeywords = /\b(const|let|var|function|class|if|else|for|while|return|new|this|try|catch|finally|async|await|export|import)\b/.test(codeContent);
+    const hasDOMManipulation = /\b(document\.|window\.|\.getElementById|\.querySelector|\.createElement|\.appendChild|\.addEventListener)\b/.test(codeContent);
+    const hasJSMethods = /\b(\.push|\.pop|\.map|\.filter|\.forEach|\.reduce|\.find|\.some|\.every|console\.log|JSON\.|Math\.)\b/.test(codeContent);
+    const hasArrowFunctions = /=>\s*[\{\(]/.test(codeContent);
+    const hasJSOperators = /[=!]==|&&|\|\||\.\.\.|\?\?|\?\./.test(codeContent);
+    const hasRegexLiterals = /\/[^\/\n]+\/[gimuy]*/.test(codeContent);
+    const hasTemplateLiterals = /`[^`]*\$\{[^}]*\}[^`]*`/.test(codeContent);
+    
+    console.log(`[Ember Debug] JS Detection Analysis:`);
+    console.log(`[Ember Debug] - Direct JS class: ${isDirectJavaScript}`);
+    console.log(`[Ember Debug] - HTML with JS: ${isHtmlWithJavaScript}`);
+    console.log(`[Ember Debug] - Has JS keywords: ${hasJSKeywords}`);
+    console.log(`[Ember Debug] - Has DOM manipulation: ${hasDOMManipulation}`);
+    console.log(`[Ember Debug] - Has JS methods: ${hasJSMethods}`);
+    console.log(`[Ember Debug] - Has arrow functions: ${hasArrowFunctions}`);
+    console.log(`[Ember Debug] - Has JS operators: ${hasJSOperators}`);
+    
+    if (className.includes('html') || className.includes('xml')) {
+        console.log(`[Ember Debug] HTML block has script tags: ${hasScriptTags}`);
+        console.log(`[Ember Debug] HTML block has ES6 imports: ${hasES6Imports}`);
+        console.log(`[Ember Debug] HTML block has JS patterns: ${hasJSInHTML}`);
+    }
+    
+    // Content-based detection with multiple criteria
+    const contentBasedScore = [
+        hasJSKeywords,
+        hasDOMManipulation, 
+        hasJSMethods,
+        hasArrowFunctions,
+        hasJSOperators,
+        hasRegexLiterals,
+        hasTemplateLiterals
+    ].filter(Boolean).length;
+    
+    // Consider it JavaScript if it has multiple JavaScript indicators
+    // and doesn't start with obvious HTML/CSS
+    const isContentBasedJavaScript = !className.includes('html') && !className.includes('xml') && !className.includes('css') &&
+                                    !isDirectJavaScript && !isHtmlWithJavaScript &&
+                                    contentBasedScore >= 2 && // At least 2 JavaScript indicators
+                                    !/^\s*<[a-zA-Z]/.test(codeContent) && // Doesn't start with HTML tag
+                                    !/^\s*[a-zA-Z#.][^{]*\{/.test(codeContent); // Doesn't start with CSS rule
+    
+    const isJavaScript = isDirectJavaScript || isHtmlWithJavaScript || isContentBasedJavaScript;
+    
+    console.log(`[Ember Debug] Content-based score: ${contentBasedScore}/7, Is content-based JS: ${isContentBasedJavaScript}`);
+    console.log(`[Ember Debug] Final determination - Is JavaScript: ${isJavaScript}`);
+    
+    return {
+        isJavaScript,
+        isDirectJavaScript,
+        isHtmlWithJavaScript,
+        isContentBasedJavaScript,
+        hasScriptTags,
+        contentBasedScore
+    };
+}
+
+// WeatherPack-inspired function to process script tags directly from HTML
+async function processScriptTagsInHTML(messageId, htmlContent, messageTextElement, processedScriptHashes = new Set()) {
+    console.log(`[Ember Debug] Processing script tags in HTML for message ${messageId}`);
+    
+    // Parse HTML safely using DOMParser to avoid script execution during parsing
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    
+    // Extract all script elements from the parsed document
+    const scripts = doc.querySelectorAll('script');
+    console.log(`[Ember Debug] Found ${scripts.length} script tags in raw HTML`);
+    
+    if (scripts.length === 0) {
+        return false; // No scripts found
+    }
+    
+    let processedAnyScripts = false;
+    
+    for (const script of scripts) {
+        const scriptContent = script.innerHTML.trim();
+        const scriptSrc = script.getAttribute('src');
+        
+        // Create a hash of the script content to avoid duplicates (Unicode-safe)
+        const scriptHash = simpleHash(scriptContent).toString().substring(0, 10);
+        if (processedScriptHashes.has(scriptHash)) {
+            console.log(`[Ember Debug] Skipping duplicate script (hash: ${scriptHash})`);
+            continue;
+        }
+        
+        // Skip empty scripts and external scripts for security
+        if (!scriptContent && !scriptSrc) {
+            console.log(`[Ember Debug] Skipping empty script tag`);
+            continue;
+        }
+        
+        if (scriptSrc) {
+            console.log(`[Ember Debug] Skipping external script source for security: ${scriptSrc}`);
+            continue;
+        }
+        
+        if (!scriptContent.trim()) {
+            console.log(`[Ember Debug] Skipping script with empty content`);
+            continue;
+        }
+        
+        console.log(`[Ember Debug] Processing inline script content (${scriptContent.length} chars)`);
+        
+        // Mark this script as processed
+        processedScriptHashes.add(scriptHash);
+        
+        // Validate JavaScript syntax before execution
+        try {
+            new Function(scriptContent);
+            console.log(`[Ember Debug] Script syntax validation passed`);
+        } catch (syntaxError) {
+            console.error(`[Ember Debug] Script syntax error:`, syntaxError);
+            console.log(`[Ember Debug] Problematic script content:`, scriptContent);
+            continue;
+        }
+        
+        // Create iframe execution environment for this script
+        const frameId = `ember-frame-${messageId}-script-${Date.now()}`;
+        console.log(`[Ember Debug] Creating iframe for script tag execution`);
+        
+        // Load all libraries by default
+        const requestedLibs = ['d3', 'three', 'p5', 'anime', 'chartjs', 'matter'];
+        
+        try {
+            console.log(`[Ember Debug] Loading libraries for script execution: ${requestedLibs.join(', ')}`);
+            
+            const libMap = requestedLibs.map(alias => BUILT_IN_LIBRARIES.find(lib=>lib.alias===alias)).filter(Boolean);
+            const libUrls = libMap.map(libDef=>`${location.origin}/scripts/extensions/third-party/${MODULE_NAME}/lib/${libDef.file}`);
+            
+            const libCodes = await Promise.all(libUrls.map(async (url) => {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    return await res.text();
+                } catch (err) {
+                    console.error(`[Ember Debug] Failed to fetch ${url}:`, err);
+                    throw new Error(`Failed to fetch library ${url}: ${err.message}`);
+                }
+            }));
+            
+            // Create loading and final containers
+            const loadingContainer = document.createElement('div');
+            loadingContainer.className = 'ember-loading-container';
+            loadingContainer.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Ember JS preparing script...</span>`;
+            loadingContainer.dataset.frameId = frameId;
+            
+            const finalContainer = document.createElement('div');
+            finalContainer.className = 'ember-container';
+            finalContainer.style.display = 'none';
+            finalContainer.dataset.frameId = frameId;
+            
+            // Insert containers into the message
+            messageTextElement.appendChild(loadingContainer);
+            messageTextElement.appendChild(finalContainer);
+            
+            console.log(`[Ember Debug] Creating sandboxed iframe for script execution`);
+            const iframe = createSandboxedFrame(scriptContent, libCodes, frameId);
+            finalContainer.appendChild(iframe);
+            
+            processedAnyScripts = true;
+            console.log(`[Ember Debug] Successfully set up script execution for ${scriptContent.length} chars of code`);
+            
+        } catch (error) {
+            console.error('[Ember JS] Critical error creating sandbox for script tag:', error);
+            // Create error display
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'ember-loading-container';
+            errorContainer.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span><b>Ember JS Error:</b> Could not create sandbox for script. Check console.</span>`;
+            errorContainer.style.color = 'var(--text-color-error)';
+            messageTextElement.appendChild(errorContainer);
+        }
+    }
+    
+    return processedAnyScripts;
+}
 
 function createSandboxedFrame(code, libraryCodes = [], frameId) {
-    const iframe = Object.assign(document.createElement('iframe'), {
-        className: 'ember-iframe', sandbox: 'allow-scripts allow-same-origin', dataset: { frameId }
-    });
+    const iframe = document.createElement('iframe');
+    iframe.className = 'ember-iframe';
+    iframe.sandbox = 'allow-scripts allow-same-origin';
+    iframe.dataset.frameId = frameId;
+    iframe.style.cssText = 'width: 100%; border: none; display: block; overflow: hidden; max-height: 600px; min-height: 200px;';
     const safeCodeString = JSON.stringify(code);
-    const iframeContent = `<html><head><style>body{font-family:var(--mainFontFamily,sans-serif);color:var(--text-color,#000);background-color:transparent;margin:0;padding:5px}#root{width:100%;height:100%;box-sizing:border-box}</style></head><body><div id="root"></div><script>(()=>{
+    const iframeContent = `<html><head><style>
+        html, body { 
+            font-family: var(--mainFontFamily, sans-serif); 
+            color: var(--text-color, #000); 
+            background-color: transparent; 
+            margin: 0; 
+            padding: 8px; 
+            overflow: auto;
+            max-height: 600px;
+            box-sizing: border-box;
+        }
+        #root { 
+            width: 100%; 
+            max-width: 100%; 
+            box-sizing: border-box;
+            overflow: auto;
+            max-height: 580px;
+        }
+        /* Ensure form elements fit properly */
+        input, button, textarea, select {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+    </style></head><body><div id="root"></div><script>(()=>{
         const e="${frameId}";
         const t=o=>window.parent.postMessage({type:"ember-error",frameId:e,message:o},"*");
         const n=()=>window.parent.postMessage({type:"ember-success",frameId:e},"*");
+
+        // Smart DOM redirection - intercept common DOM operations and redirect to root
+        const rootElement = document.getElementById("root");
+        const createdElements = {}; // Track elements we create
+        
+        // Smart element creation - create missing elements on demand
+        function createMissingElement(id) {
+            if (createdElements[id]) {
+                return createdElements[id];
+            }
+            
+            console.log("[Ember Smart Create] Creating missing element with ID: " + id);
+            let element;
+            
+            // Create appropriate element types based on common ID patterns
+            if (id.toLowerCase().includes('input') || id.toLowerCase().includes('text') || id.toLowerCase().includes('field')) {
+                element = document.createElement('input');
+                element.type = 'text';
+                element.placeholder = 'Enter text...';
+                element.style.cssText = 'padding: 8px; margin: 4px; border: 1px solid #ccc; border-radius: 4px; width: 200px;';
+            } else if (id.toLowerCase().includes('button') || id.toLowerCase().includes('btn')) {
+                element = document.createElement('button');
+                element.textContent = id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                element.style.cssText = 'padding: 8px 16px; margin: 4px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;';
+            } else if (id.toLowerCase().includes('display') || id.toLowerCase().includes('output') || id.toLowerCase().includes('result')) {
+                element = document.createElement('div');
+                element.textContent = 'Output will appear here...';
+                element.style.cssText = 'padding: 12px; margin: 8px; border: 1px dashed #ccc; background: #f9f9f9; border-radius: 4px; min-height: 30px;';
+            } else if (id.toLowerCase().includes('message') || id.toLowerCase().includes('msg')) {
+                element = document.createElement('div');
+                element.style.cssText = 'padding: 8px; margin: 4px; border: 1px solid #ddd; border-radius: 4px; min-height: 20px;';
+            } else {
+                // Default to div for unknown elements
+                element = document.createElement('div');
+                element.style.cssText = 'padding: 4px; margin: 2px; border: 1px solid #eee; border-radius: 2px;';
+            }
+            
+            element.id = id;
+            createdElements[id] = element;
+            rootElement.appendChild(element);
+            console.log("[Ember Smart Create] Created and appended " + element.tagName + " with ID: " + id);
+            return element;
+        }
+        
+        // Override document.getElementById to create missing elements
+        const originalGetElementById = document.getElementById;
+        document.getElementById = function(id) {
+            const element = originalGetElementById.call(document, id);
+            if (!element && id !== 'root') {
+                console.log("[Ember Smart Redirect] Element '" + id + "' not found, creating it...");
+                return createMissingElement(id);
+            }
+            return element;
+        };
+        
+        // Override document.querySelector to create missing elements for ID selectors
+        const originalQuerySelector = document.querySelector;
+        document.querySelector = function(selector) {
+            const element = originalQuerySelector.call(document, selector);
+            if (!element && selector !== '#root' && selector !== 'body' && selector !== 'html') {
+                console.log("[Ember Smart Redirect] Selector '" + selector + "' not found");
+                // If it's an ID selector (#something), create the element
+                if (selector.startsWith('#')) {
+                    const id = selector.substring(1);
+                    console.log("[Ember Smart Redirect] Creating element for ID selector: " + id);
+                    return createMissingElement(id);
+                }
+                // For other selectors, return root as fallback
+                console.log("[Ember Smart Redirect] Using root as fallback for selector: " + selector);
+                return rootElement;
+            }
+            return element;
+        };
+        
+        // Override document.body to redirect appendChild calls to root
+        const originalBodyAppendChild = document.body.appendChild;
+        document.body.appendChild = function(element) {
+            console.log("[Ember Smart Redirect] Redirecting document.body.appendChild to root.appendChild");
+            return rootElement.appendChild(element);
+        };
+        
+        // Override document.appendChild to redirect to root (if it exists)
+        if (document.appendChild) {
+            const originalDocAppendChild = document.appendChild;
+            document.appendChild = function(element) {
+                console.log("[Ember Smart Redirect] Redirecting document.appendChild to root.appendChild");
+                return rootElement.appendChild(element);
+            };
+        }
 
         window.ember = {
             inject: function(options) {
@@ -551,18 +890,36 @@ function createSandboxedFrame(code, libraryCodes = [], frameId) {
         }).observe(document.documentElement);
 
         try{
+            console.log("[Ember Iframe] Starting execution...");
+            
+            // Load all libraries automatically
             const libraryScripts = ${JSON.stringify(libraryCodes)};
+            console.log("[Ember Iframe] Loading", libraryScripts.length, "libraries...");
             for(const scriptContent of libraryScripts){
                 const scriptEl = document.createElement("script");
                 scriptEl.textContent = scriptContent;
                 document.head.appendChild(scriptEl);
             }
+            console.log("[Ember Iframe] Libraries loaded");
+            
+            // Make libraries available globally for easy access
+            if (window.Chart) { window.Chart = window.Chart; }
+            
             const userCodeToRun = ${safeCodeString};
+            console.log("[Ember Iframe] User code length:", userCodeToRun.length);
+            console.log("[Ember Iframe] User code preview:", userCodeToRun.substring(0, 200) + "...");
+            
             const rootElement = document.getElementById("root");
             if (!rootElement) { t("Ember Internal Error: #root element not found in iframe."); return; }
+            console.log("[Ember Iframe] Root element found:", rootElement);
+            
+            // Execute user code with root element available
+            console.log("[Ember Iframe] Executing user code...");
             new Function('root', userCodeToRun)(rootElement);
-             setTimeout(s, 1000);
+            console.log("[Ember Iframe] User code executed successfully");
+            setTimeout(s, 1000);
         }catch(err){
+            console.error("[Ember Iframe] Execution error:", err);
             t("Ember Execution Error: "+(err.stack||err.message));
         }})();<\/script></body></html>`;
     iframe.src = URL.createObjectURL(new Blob([iframeContent], { type: 'text/html' }));
@@ -570,54 +927,183 @@ function createSandboxedFrame(code, libraryCodes = [], frameId) {
 }
 
 async function processMessage(messageId, isUserMessage = false) {
+    console.log(`[Ember Debug] Processing message ${messageId}, isUser: ${isUserMessage}`);
     const messageDomElement = document.querySelector(`.mes[mesid="${messageId}"]`);
-    if (!messageDomElement) return;
+    if (!messageDomElement) {
+        console.log(`[Ember Debug] No DOM element found for message ${messageId}`);
+        return;
+    }
     const messageTextElement = messageDomElement.querySelector('.mes_text');
     if (!messageTextElement || messageTextElement.querySelector('.ember-iframe, .ember-generic-html-iframe, .edit_textarea')) {
+        console.log(`[Ember Debug] No text element or already processed for message ${messageId}`);
         return;
     }
 
     let processedByEmberJs = false;
-    for (const codeBlock of messageTextElement.querySelectorAll(`pre > code[class*="language-javascript"], pre > code[class*="lang-javascript"]`)) {
-        const parentPre = codeBlock.parentElement;
-        if (parentPre.dataset.emberProcessed === 'true') { processedByEmberJs = true; continue; }
-        const rawCode = codeBlock.innerText.trim();
-        let frontmatter = '';
-        let codeWithoutFrontmatter = rawCode;
-        const frontmatterMatch = rawCode.match(/^---\s*([\s\S]*?)\s*---\s*([\s\S]*)$/);
-        if (frontmatterMatch) {
-            frontmatter = frontmatterMatch[1];
-            codeWithoutFrontmatter = frontmatterMatch[2] || '';
-        } else {
-            continue;
+    let processedScriptHashes = new Set(); // Track processed scripts to avoid duplicates
+    
+    // WeatherPack-inspired approach: Also check raw message content for script tags
+    const rawMessageContent = getContext().chat[messageId]?.mes;
+    if (rawMessageContent) {
+        console.log(`[Ember Debug] Checking raw message content for script tags...`);
+        if (await processScriptTagsInHTML(messageId, rawMessageContent, messageTextElement, processedScriptHashes)) {
+            processedByEmberJs = true;
+            console.log(`[Ember Debug] Processed script tags from raw HTML for message ${messageId}`);
+            
+            // Hide any HTML code blocks that contain the same JavaScript
+            console.log(`[Ember Debug] Looking for HTML code blocks to hide after processing script tags...`);
+            const codeBlocks = messageTextElement.querySelectorAll(`pre > code`);
+            for (const codeBlock of codeBlocks) {
+                const className = codeBlock.className || '';
+                if (className.includes('html') || className.includes('xml')) {
+                    const codeContent = codeBlock.innerText.trim();
+                    // Check if this HTML block contains script tags with processed JavaScript
+                    if (/<script\b[^>]*>[\s\S]*?<\/script>/i.test(codeContent)) {
+                        const parentPre = codeBlock.parentElement;
+                        console.log(`[Ember Debug] Hiding HTML code block that contains processed script tags`);
+                        parentPre.style.display = 'none';
+                        parentPre.dataset.emberProcessed = 'hidden-after-script-processing';
+                    }
+                }
+            }
         }
-        if (!codeWithoutFrontmatter.trim()) {
+    }
+    // Look for JavaScript code blocks with more flexible detection
+    const codeBlocks = messageTextElement.querySelectorAll(`pre > code`);
+    console.log(`[Ember Debug] Found ${codeBlocks.length} code blocks in message ${messageId}`);
+    
+    for (const codeBlock of codeBlocks) {
+        // Check if it's a JavaScript code block by class name or content pattern
+        const className = codeBlock.className || '';
+        const codeContent = codeBlock.innerText.trim();
+        
+        console.log(`[Ember Debug] Code block class: "${className}", content preview: "${codeContent.substring(0, 100)}..."`);
+        
+        // WeatherPack-inspired comprehensive JavaScript detection
+        const jsDetection = detectJavaScriptContent(className, codeContent);
+        
+        console.log(`[Ember Debug] Detection result:`, jsDetection);
+        
+        if (!jsDetection.isJavaScript) continue;
+        
+        console.log(`[Ember Debug] Processing JavaScript code block for message ${messageId}`);
+        
+        const parentPre = codeBlock.parentElement;
+        if (parentPre.dataset.emberProcessed === 'true') { 
+            console.log(`[Ember Debug] Code block already processed`);
+            processedByEmberJs = true; 
+            continue; 
+        }
+        
+        if (!codeContent.trim()) {
+             console.log(`[Ember Debug] Empty code content, skipping`);
              parentPre.dataset.emberProcessed = 'skipped';
              continue;
         }
-        processedByEmberJs = true; parentPre.dataset.emberProcessed = 'true';
-        const requestedLibs = [];
+        
+        // Extract JavaScript code based on content type
+        let javascriptCode;
+        if (jsDetection.isHtmlWithJavaScript) {
+            // Extract JS from HTML content (this will be the actual JS code)
+            javascriptCode = extractJavaScriptFromHTML(codeContent, jsDetection);
+        } else {
+            // Use the code content directly, but clean up any HTML entities
+            javascriptCode = codeContent
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#x27;/g, "'")
+                .replace(/&#39;/g, "'")
+                .replace(/&nbsp;/g, ' ');
+        }
+        
+        // Check for duplicate code using same hash system (Unicode-safe)
+        const codeHash = simpleHash(javascriptCode.trim()).toString().substring(0, 10);
+        if (processedScriptHashes.has(codeHash)) {
+            console.log(`[Ember Debug] Hiding duplicate code block (hash: ${codeHash})`);
+            parentPre.dataset.emberProcessed = 'duplicate';
+            parentPre.style.display = 'none'; // Hide the duplicate code block
+            continue;
+        }
+        
+        // Mark this code as processed
+        processedScriptHashes.add(codeHash);
+        
+        // Validate JavaScript syntax before execution
         try {
-            frontmatter.trim().split('\n').forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine.toLowerCase().startsWith('libs:')) return;
-                if (trimmedLine.startsWith('-')) {
-                    const libAlias = trimmedLine.substring(1).trim();
-                    if (libAlias) requestedLibs.push(libAlias);
+            new Function(javascriptCode);
+            console.log(`[Ember Debug] JavaScript syntax validation passed`);
+        } catch (syntaxError) {
+            console.error(`[Ember Debug] JavaScript syntax error:`, syntaxError);
+            console.log(`[Ember Debug] Problematic code:`, javascriptCode);
+            parentPre.dataset.emberProcessed = 'syntax-error';
+            continue;
+        }
+        
+        console.log(`[Ember Debug] Creating iframe for JavaScript execution`);
+        processedByEmberJs = true; 
+        parentPre.dataset.emberProcessed = 'true';
+        
+        // Load all libraries by default - no frontmatter parsing needed
+        const requestedLibs = ['d3', 'three', 'p5', 'anime', 'chartjs', 'matter'];
+
+        const frameId = `ember-frame-${messageId}-codeblock-${Date.now()}`;
+        console.log(`[Ember Debug] Creating iframe execution environment for ${jsDetection.isHtmlWithJavaScript ? 'HTML with JavaScript' : jsDetection.isContentBasedJavaScript ? 'content-based JavaScript' : 'direct JavaScript'}`);
+        
+        // Declare containers in outer scope so they're available to both try blocks
+        let loadingContainer, finalContainer;
+        
+        try {
+            loadingContainer = document.createElement('div');
+            loadingContainer.className = 'ember-loading-container';
+            loadingContainer.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Ember JS preparing...</span>`;
+            loadingContainer.dataset.frameId = frameId;
+            
+            finalContainer = document.createElement('div');
+            finalContainer.className = 'ember-container';
+            finalContainer.style.display = 'none';
+            finalContainer.dataset.frameId = frameId;
+            
+            parentPre.insertAdjacentElement('afterend', finalContainer);
+            parentPre.insertAdjacentElement('afterend', loadingContainer);
+            
+        } catch (domError) {
+            console.error(`[Ember Debug] DOM Error:`, domError);
+            continue; // Skip this iteration if DOM setup fails
+        }
+
+        try {
+            console.log(`[Ember Debug] ENTERED TRY BLOCK - Loading libraries: ${requestedLibs.join(', ')}`);
+            
+            const libMap = requestedLibs.map(alias => BUILT_IN_LIBRARIES.find(lib=>lib.alias===alias)).filter(Boolean);
+            console.log(`[Ember Debug] Found ${libMap.length} library definitions:`, libMap);
+            
+            const libUrls = libMap.map(libDef=>`${location.origin}/scripts/extensions/third-party/${MODULE_NAME}/lib/${libDef.file}`);
+            console.log(`[Ember Debug] Library URLs: ${libUrls.join(', ')}`);
+            
+            console.log(`[Ember Debug] Starting to fetch libraries...`);
+            const libCodes = await Promise.all(libUrls.map(async (url, index) => {
+                console.log(`[Ember Debug] Fetching ${url}...`);
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    const code = await res.text();
+                    console.log(`[Ember Debug] Successfully loaded ${url} (${code.length} chars)`);
+                    return code;
+                } catch (err) {
+                    console.error(`[Ember Debug] Failed to fetch ${url}:`, err);
+                    throw new Error(`Failed to fetch library ${url}: ${err.message}`);
                 }
-            });
-        } catch (e) { console.error('[Ember JS] Error parsing frontmatter libs:', e); }
-
-        const frameId = `ember-frame-${messageId}-${Date.now()}`;
-        const loadingContainer = Object.assign(document.createElement('div'), { className: 'ember-loading-container', innerHTML: `<i class="fa-solid fa-spinner fa-spin"></i> <span>Ember JS preparing...</span>`, dataset: { frameId } });
-        const finalContainer = Object.assign(document.createElement('div'), { className: 'ember-container', style: 'display:none;', dataset: { frameId } });
-        parentPre.insertAdjacentElement('afterend', finalContainer);
-        parentPre.insertAdjacentElement('afterend', loadingContainer);
-
-        try {
-            const libUrls = requestedLibs.map(alias => BUILT_IN_LIBRARIES.find(lib=>lib.alias===alias)).filter(Boolean).map(libDef=>`${location.origin}/scripts/extensions/third-party/${MODULE_NAME}/lib/${libDef.file}`);
-            const libCodes = await Promise.all(libUrls.map(url => fetch(url).then(res => res.ok ? res.text() : Promise.reject(`Failed to fetch library ${url}`))));
-            finalContainer.appendChild(createSandboxedFrame(codeWithoutFrontmatter, libCodes, frameId));
+            }));
+            console.log(`[Ember Debug] Successfully loaded ${libCodes.length} libraries`);
+            
+            console.log(`[Ember Debug] Creating sandboxed iframe...`);
+            console.log(`[Ember Debug] JavaScript code to execute (${javascriptCode.length} chars):`, javascriptCode);
+            const iframe = createSandboxedFrame(javascriptCode, libCodes, frameId);
+            console.log(`[Ember Debug] Created iframe:`, iframe);
+            finalContainer.appendChild(iframe);
+            console.log(`[Ember Debug] Appended iframe to container, hiding original pre`);
             parentPre.style.display = 'none';
         } catch (error) {
             console.error('[Ember JS] Critical error creating sandbox or fetching libs:', error);
@@ -627,12 +1113,103 @@ async function processMessage(messageId, isUserMessage = false) {
             if (finalContainer) finalContainer.remove();
         }
     }
-    if (processedByEmberJs) return;
+    
+    // Add the missing extractJavaScriptFromHTML function
+    function extractJavaScriptFromHTML(codeContent, jsDetection) {
+        if (jsDetection.hasScriptTags) {
+            // Extract JavaScript from script tags
+            const scriptMatches = codeContent.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
+            if (scriptMatches) {
+                const javascriptCode = scriptMatches
+                    .map(match => {
+                        // Extract content between script tags
+                        let content = match.replace(/<script\b[^>]*>|<\/script>/gi, '');
+                        
+                        // Decode HTML entities that might be present
+                        content = content
+                            .replace(/&lt;/g, '<')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&amp;/g, '&')
+                            .replace(/&quot;/g, '"')
+                            .replace(/&#x27;/g, "'")
+                            .replace(/&#39;/g, "'")
+                            .replace(/&nbsp;/g, ' ');
+                        
+                        return content.trim();
+                    })
+                    .filter(content => content.length > 0) // Remove empty scripts
+                    .join('\n\n');
+                console.log(`[Ember Debug] Extracted ${scriptMatches.length} script blocks from HTML`);
+                return javascriptCode;
+            }
+        } else {
+            // For HTML with embedded JS, extract just the JavaScript parts more carefully
+            // First, try to extract content between <script> tags even if they're not properly formed
+            let scriptContent = '';
+            
+            // Look for script-like sections (between <script and </script> or at end)
+            const scriptSectionMatch = codeContent.match(/<script[^>]*>([\s\S]*?)(?:<\/script>|$)/i);
+            if (scriptSectionMatch) {
+                scriptContent = scriptSectionMatch[1];
+            } else {
+                // If no script tags, look for the first import statement and take everything from there
+                const lines = codeContent.split('\n');
+                let jsStartIndex = -1;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    // Look for clear JavaScript start indicators
+                    if (/^\s*(import\s+.*from|\/\/\s*Import|const\s+\w+\s*=|let\s+\w+\s*=|var\s+\w+\s*=|function\s+\w+|class\s+\w+)/.test(line)) {
+                        jsStartIndex = i;
+                        break;
+                    }
+                }
+                
+                if (jsStartIndex >= 0) {
+                    // Take everything from the first JS line to the end
+                    scriptContent = lines.slice(jsStartIndex).join('\n');
+                } else {
+                    // Fallback: filter lines more carefully to avoid CSS
+                    const jsLines = lines.filter(line => {
+                        const trimmedLine = line.trim();
+                        // Exclude CSS-like lines
+                        if (/^\s*[a-zA-Z#.][^{]*\{[\s\S]*\}?\s*$/.test(trimmedLine)) return false; // CSS rules
+                        if (/^\s*[a-zA-Z-]+\s*:\s*[^;]+;\s*$/.test(trimmedLine)) return false; // CSS properties
+                        if (/^\s*<\/?[a-zA-Z]/.test(trimmedLine)) return false; // HTML tags
+                        
+                        // Include clear JavaScript lines
+                        return /\b(import|export|const|let|var|function|class|if|for|while|return|=>\||\.addEventListener|\.querySelector|new\s+\w+|console\.|document\.|window\.)\b/.test(trimmedLine) ||
+                               /^\s*\/\//.test(trimmedLine) || // Comments
+                               /^\s*\}[,;]?\s*$/.test(trimmedLine); // Closing braces
+                    });
+                    scriptContent = jsLines.join('\n');
+                }
+            }
+            
+            const cleanedContent = scriptContent
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#x27;/g, "'")
+                .replace(/&#39;/g, "'")
+                .replace(/&nbsp;/g, ' ');
+            
+            console.log(`[Ember Debug] Extracted JavaScript content from mixed HTML`);
+            return cleanedContent;
+        }
+        
+        return codeContent; // Fallback
+    }
+    if (processedByEmberJs) {
+        console.log(`[Ember Debug] Finished processing JS blocks for message ${messageId}, returning`);
+        return;
+    }
 
     // Direct HTML Rendering Logic
     let genericHtmlShouldBeHandled = false;
-    let rawMessageContent = getContext().chat[messageId]?.mes;
-    let htmlForProcessing = rawMessageContent; // Default to original raw content
+    let messageContent = getContext().chat[messageId]?.mes;
+    let htmlForProcessing = messageContent; // Default to original raw content
 
     if (htmlForProcessing) {
         // Check if the entire raw message content is an HTML markdown code block
@@ -671,6 +1248,7 @@ async function processMessage(messageId, isUserMessage = false) {
 window.addEventListener('message', async (event) => {
     if (!event.data || !event.data.type?.startsWith('ember-')) return;
     const { type, frameId, message, height, injection } = event.data;
+    console.log(`[Ember Debug] Received message from iframe: ${type}, frameId: ${frameId}`);
     const loadingContainer = document.querySelector(`.ember-loading-container[data-frame-id="${frameId}"]`);
     const finalContainer = document.querySelector(`.ember-container[data-frame-id="${frameId}"]`);
 
@@ -694,7 +1272,15 @@ window.addEventListener('message', async (event) => {
         case 'ember-resize':
             if (!finalContainer || height <= 0) break;
             const currentMax = emberMaxHeights[frameId] || 0;
-            const newHeight = height + 15;
+            let newHeight = height + 15;
+            
+            // Cap the maximum height to prevent excessive scrolling
+            const maxAllowedHeight = 600;
+            if (newHeight > maxAllowedHeight) {
+                newHeight = maxAllowedHeight;
+                console.log(`[Ember Debug] Capping iframe height at ${maxAllowedHeight}px`);
+            }
+            
             if (newHeight > currentMax) {
                  emberMaxHeights[frameId] = newHeight;
                  finalContainer.style.height = newHeight + 'px';
@@ -810,6 +1396,12 @@ $(document).ready(async function () {
         console.error(`[Ember] Failed to load or append settings HTML. Please check if settings.html exists at the correct path: scripts/extensions/third-party/${MODULE_NAME}/settings.html. Error:`, err);
     }
 
+    // Debug extension prompt types availability
+    console.log(`[Ember Debug] setExtensionPrompt function available:`, typeof setExtensionPrompt);
+    console.log(`[Ember Debug] extension_prompt_types object:`, extension_prompt_types);
+    console.log(`[Ember Debug] extension_prompt_types keys:`, Object.keys(extension_prompt_types || {}));
+    console.log(`[Ember Debug] extension_prompt_types values:`, Object.values(extension_prompt_types || {}));
+
     loadSettings();
     initializeHealButton();
 
@@ -892,5 +1484,8 @@ $(document).ready(async function () {
         }
     });
 
-    console.log('Ember (Enhanced with JS Injection) extension loaded.');
+    console.log('[Ember] Extension loaded successfully! Ready to process JavaScript code blocks.');
+    
+    // Test if the extension is working by processing existing messages
+    processExistingMessages();
 });

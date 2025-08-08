@@ -1,7 +1,7 @@
 {
     "display_name": "Ember ",
     "author": "NemoVonNirgend",
-    "version": "3.3.0",
+    "version": "3.3.1",
     "description": "Renders interactive JS/HTML/CSS, general HTML, and makes raw form inputs clickable with context injection capabilities from both HTML buttons and JS blocks.",
     "js": "main.js",
     "css": "style.css",
