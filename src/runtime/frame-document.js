@@ -29,7 +29,7 @@ export function buildFrameDocument({
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${safeTitle}</title>
 <style>html,body{margin:0;min-height:1px}body{font:inherit;color:inherit}#root{box-sizing:border-box;min-height:1px}</style>
@@ -184,7 +184,7 @@ new MutationObserver(records => {
     }
 }).observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
 const reportSize = () => send('artifact.resize', {
-    height: Math.ceil(document.documentElement.scrollHeight),
+    height: Math.max(1, Math.ceil(document.documentElement.scrollHeight)),
 });
 new ResizeObserver(reportSize).observe(document.documentElement);
 addEventListener('error', event => send('artifact.error', {

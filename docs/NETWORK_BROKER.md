@@ -19,8 +19,12 @@ Remote `img`, `audio`, `video`, and `source` URLs are fetched through the same b
 - Requests use `credentials: 'omit'` and `referrerPolicy: 'no-referrer'`.
 - Redirects fail closed.
 - Request bodies are capped at 1 MB and responses at 12 MB.
+- Responses are read incrementally and cancelled as soon as the cap is exceeded.
+- Each artifact session is limited to four concurrent requests, with a 12-second timeout.
 - Allowed methods are GET, POST, PUT, PATCH, DELETE, and HEAD.
 - The browser still enforces CORS. Ember does not operate a server-side open proxy.
 - WebSocket, EventSource, XMLHttpRequest, external scripts, CSS background URLs, and streaming response delivery are not supported in this checkpoint.
 
 The model-facing parser infers `network.fetch` from standard `fetch()`, remote URLs, and common media constructors. The user still controls the capability through Ember's permission dialog.
+
+IPv6 literal URLs are conservatively rejected. Hostname validation and browser CORS reduce exposure, but a hostile public hostname that changes DNS answers after validation remains a browser-side DNS-rebinding limitation; do not grant `network.fetch` to untrusted code.

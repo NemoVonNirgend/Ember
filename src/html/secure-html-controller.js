@@ -13,6 +13,8 @@ export function createSecureHtmlController({
     observe = () => {},
 }) {
     const processed = new Set();
+    const listeners = [];
+    let installed = false;
 
     function shouldRender(message) {
         if (!settings.secureHtmlRendererEnabled) return false;
@@ -60,15 +62,35 @@ export function createSecureHtmlController({
         });
     }
 
+    function listen(event, handler) {
+        if (!event) return;
+        eventSource.on(event, handler);
+        listeners.push([event, handler]);
+    }
+
     return Object.freeze({
         install() {
-            eventSource.on(events.USER_MESSAGE_RENDERED, process);
-            eventSource.on(events.CHARACTER_MESSAGE_RENDERED, process);
-            eventSource.on(events.MESSAGE_EDITED, process);
-            eventSource.on(events.MESSAGE_SWIPED, process);
-            eventSource.on(events.CHAT_LOADED, processExisting);
-            eventSource.on(events.CHAT_CHANGED, () => processed.clear());
+            if (installed) return false;
+            installed = true;
+            listen(events.USER_MESSAGE_RENDERED, process);
+            listen(events.CHARACTER_MESSAGE_RENDERED, process);
+            listen(events.MESSAGE_EDITED, process);
+            listen(events.MESSAGE_SWIPED, process);
+            listen(events.CHAT_LOADED, processExisting);
+            listen(events.CHAT_CHANGED, () => processed.clear());
             processExisting();
+            return true;
+        },
+        uninstall() {
+            if (!installed) return false;
+            for (const [event, handler] of listeners.splice(0)) {
+                if (typeof eventSource.removeListener === 'function') eventSource.removeListener(event, handler);
+                else eventSource.off?.(event, handler);
+            }
+            for (const id of [...processed]) restore(Number(id));
+            processed.clear();
+            installed = false;
+            return true;
         },
         process,
         processExisting,

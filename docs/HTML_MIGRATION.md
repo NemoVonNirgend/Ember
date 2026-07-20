@@ -36,11 +36,11 @@ This separates presentation from execution:
 
 The default mode processes AI responses only. An optional mode also processes user messages.
 
-Disabling the secure renderer restores currently processed messages using SillyTavern's normal formatter. Reload SillyTavern after disabling it if the older Ember 3 direct-HTML behavior is required for existing messages.
+Disabling the secure renderer restores currently processed messages using SillyTavern's normal formatter. It does not restore Ember 3 script execution or parent-DOM form behavior.
 
 ## Known limits
 
 - Mixed Markdown and complex HTML is intentionally left to SillyTavern.
 - External scripts are never part of the generic HTML path.
 - Inline scripts are supported in interactive HTML; external script sources remain blocked.
-- CSS remains subject to DOMPurify and browser behavior; a later pass will add optional CSS scoping for generic HTML.
+- Parent-rendered static HTML rejects style, form, link, form-control, `id`, and `name` content to prevent global CSS, DOM clobbering, or deceptive host-page interactions. Use an isolated scripted HTML artifact for interactive documents.

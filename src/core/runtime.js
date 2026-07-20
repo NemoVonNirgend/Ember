@@ -24,7 +24,7 @@ export function createEmberRuntime({ iframeOptions = {}, observability = null, c
     let iframeRuntime = null;
 
     const publicApi = Object.freeze({
-        version: '4.0.0-dev.1',
+        version: '4.0.0-rc.1',
         get phase() {
             return state.phase;
         },

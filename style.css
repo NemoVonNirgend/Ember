@@ -230,3 +230,32 @@
     color: var(--error-color, #d66);
     white-space: pre-wrap;
 }
+
+.ember-v4-portable-actions {
+    margin: 0.75rem 0 0.35rem;
+    flex-wrap: wrap;
+}
+
+.ember-v4-portable-status,
+.ember-v4-library-status {
+    min-height: 1.4em;
+    margin: 0.35rem 0;
+}
+
+.ember-v4-portable-status[data-state="error"],
+.ember-v4-library-status[data-state="error"] {
+    color: var(--error-color, #d44);
+}
+
+.ember-v4-library-list {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.ember-v4-library-entry {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) auto repeat(3, auto);
+    gap: 0.5rem;
+    align-items: center;
+}

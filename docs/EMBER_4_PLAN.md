@@ -4,7 +4,7 @@
 
 Ember 4 is a secure interactive-artifact runtime for SillyTavern. A response may contain a visual or interactive artifact, but generated code receives no direct authority over SillyTavern. All host actions cross a versioned, authenticated, permission-checked bridge.
 
-The existing Ember 3 renderer remains available through a compatibility layer while features move to the new runtime.
+Ember 3 remains a parsing and static-rendering compatibility layer. Ember 4 exclusively owns executable JavaScript and scripted HTML.
 
 ## Design principles
 
@@ -51,8 +51,8 @@ The old bundled D3, Three.js, p5.js, Anime.js, Chart.js, and Matter.js files rem
 - [x] Validate every incoming message and enforce payload limits.
 - [x] Add mount, resize, error, message-dispose, and chat-dispose lifecycle primitives.
 - [x] Separate requested permissions from permissions granted by the host.
-- [ ] Implement permission prompts and remembered decisions.
-- [ ] Mount v2 artifacts from the SillyTavern message lifecycle.
+- [x] Implement permission prompts and source/message-scoped remembered decisions.
+- [x] Mount v2 artifacts from the SillyTavern message lifecycle.
 
 ### Phase 3 — structured host capabilities
 
@@ -61,9 +61,9 @@ The old bundled D3, Three.js, p5.js, Anime.js, Chart.js, and Matter.js files rem
 - [x] Store artifact state through chat metadata.
 - [x] Keep network access disabled by default through the frame CSP.
 - [x] Mount and dispose Ember v2 artifacts through SillyTavern message events.
-- [x] Prompt for permissions and optionally remember decisions by permission signature.
+- [x] Prompt for permissions and optionally remember decisions by source, ownership, and permission signature.
 - [ ] Add revision-aware state migrations when an artifact ID changes shape.
-- [ ] Add an artifact inspector showing source, permissions, state, and events.
+- [x] Add an artifact inspector showing source, permissions, ownership, diagnostics, and events.
 
 ### Phase 4 — rendering migration
 
@@ -84,7 +84,7 @@ The old bundled D3, Three.js, p5.js, Anime.js, Chart.js, and Matter.js files rem
 - [x] Preview manual or model-assisted source changes with diff-match-patch.
 - [x] Keep repair proposals non-executing and non-persistent by default.
 - [ ] Capture the complete iframe console stream in addition to runtime errors.
-- [ ] Add confirmed, revision-checked repair application with provenance.
+- [x] Add confirmed, revision-checked repair application with provenance and rollback.
 
 ## Checkpoint 4 — visible product layer
 
@@ -106,7 +106,7 @@ The old bundled D3, Three.js, p5.js, Anime.js, Chart.js, and Matter.js files rem
 - [x] Lazy-load and cache only requested compatibility assets.
 - [x] Add revision-checked repair application, provenance, and rollback.
 - [ ] Gather local compatibility-alias usage through fixtures and the Inspector.
-- [ ] Disable or remove the remaining Ember 3 JavaScript implementation after live validation.
+- [x] Disable the remaining Ember 3 JavaScript authority whenever Ember 4 is active.
 - [ ] Remove individual bundled assets only after their migration criteria are met.
 
 ### Phase 7 — zero-ceremony interactive output
@@ -118,7 +118,7 @@ The old bundled D3, Three.js, p5.js, Anime.js, Chart.js, and Matter.js files rem
 - [x] Keep static HTML on the sanitized renderer path.
 - [x] Replace the manifest-first model prompt with ordinary HTML/JavaScript guidance.
 - [x] Add the permission-controlled network and media broker.
-- [ ] Add the permanent artifact registry and portable package format.
+- [x] Add the live artifact registry, durable reusable library, and portable package format.
 
 ## Initial success criteria
 

@@ -73,7 +73,20 @@ root.appendChild(button);
 | `host.state.write` | Write this artifact's chat-scoped state. |
 | `network.fetch` | Make credential-free requests to external HTTP(S) APIs and load remote media through the host broker. |
 
-Declaring a permission only requests it. The host must grant it separately. Decisions may be remembered for the exact requested permission set.
+Declaring a permission only requests it. The host must grant it separately. Remembered decisions are scoped to the exact source digest, chat, message, and requested permission set. Editing, moving, or importing an artifact requires fresh review.
+
+## Portable packages
+
+The Inspector can save an artifact to Ember's reusable library or export a versioned `.ember.json` package. A package contains only:
+
+- `kind` and package `version`;
+- a SHA-256 digest;
+- the normalized v2 manifest;
+- UTF-8 artifact source.
+
+Packages never contain permission decisions, capability tokens, runtime state, chat IDs, message IDs, or source ownership. Import verifies the schema, the 1 MB source limit, supported permissions and libraries, and the digest. A valid import is stored for review; it is not executed.
+
+Choosing **Add to composer** produces a canonical `ember` fence. The normal message lifecycle and permission dialog apply after the user sends it.
 
 ## Security boundary
 
@@ -81,3 +94,5 @@ Declaring a permission only requests it. The host must grant it separately. Deci
 - The frame CSP blocks direct network access and external scripts. Standard `fetch()` and remote image/audio URLs are mediated by the host broker.
 - Host requests require an artifact ID, capability token, exact frame source, declared permission, granted permission, and valid payload.
 - State is stored by the host rather than in the frame's origin.
+- Host actions are rejected when the originating chat, message revision, or frame is no longer current.
+- Submit and generate require parent-page user activation.

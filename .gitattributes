@@ -1,0 +1,4 @@
+* text=auto
+main.js -text whitespace=cr-at-eol
+manifest.json -text whitespace=cr-at-eol
+style.css -text whitespace=cr-at-eol

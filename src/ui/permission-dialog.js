@@ -4,8 +4,8 @@ const PERMISSION_DESCRIPTIONS = Object.freeze({
     'host.submit': 'Send a user message from an explicit interaction.',
     'host.inject': 'Add information to future model context.',
     'host.generate': 'Start a new model response.',
-    'host.state.read': 'Read this artifact’s saved chat state.',
-    'host.state.write': 'Update this artifact’s saved chat state.',
+    'host.state.read': "Read this artifact's saved chat state.",
+    'host.state.write': "Update this artifact's saved chat state.",
     'network.fetch': 'Load data, images, audio, or video from external websites without sharing SillyTavern cookies.',
 });
 
@@ -28,7 +28,7 @@ export function createPermissionDialog({ document, callPopup, confirmType }) {
             const code = document.createElement('code');
             code.textContent = permission;
             const description = document.createElement('span');
-            description.textContent = ` — ${PERMISSION_DESCRIPTIONS[permission] ?? 'Unknown capability.'}`;
+            description.textContent = ` - ${PERMISSION_DESCRIPTIONS[permission] ?? 'Unknown capability.'}`;
             item.append(code, description);
             list.appendChild(item);
         }
@@ -39,7 +39,7 @@ export function createPermissionDialog({ document, callPopup, confirmType }) {
         const remember = document.createElement('input');
         remember.type = 'checkbox';
         const rememberText = document.createElement('span');
-        rememberText.textContent = 'Remember this decision for the same permission set';
+        rememberText.textContent = 'Remember this decision for this exact artifact and message';
         rememberLabel.append(remember, rememberText);
         content.appendChild(rememberLabel);
 

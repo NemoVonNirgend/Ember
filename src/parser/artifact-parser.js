@@ -2,9 +2,9 @@
 
 import { normalizePermissions } from '../core/permissions.js';
 
-const EMBER_FENCE = /```ember\s*\n([\s\S]*?)\n```/gi;
-const LEGACY_JS_FENCE = /```(?:javascript|js)\s*\n([\s\S]*?)\n```/gi;
-const HTML_FENCE = /```html\s*\n([\s\S]*?)\n```/gi;
+const EMBER_FENCE = /(`{3,})ember[^\S\r\n]*\r?\n([\s\S]*?)\r?\n\1(?!`)/gi;
+const LEGACY_JS_FENCE = /(`{3,})(?:javascript|js)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n\1(?!`)/gi;
+const HTML_FENCE = /(`{3,})html[^\S\r\n]*\r?\n([\s\S]*?)\r?\n\1(?!`)/gi;
 const LEGACY_FRONTMATTER = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
 
 function inferLegacyLibraries(source) {
@@ -108,16 +108,16 @@ export function parseArtifact(message, { parseManifest = JSON.parse } = {}) {
     const matches = [];
 
     for (const match of message.matchAll(EMBER_FENCE)) {
-        matches.push({ index: match.index, artifact: parseManifestBlock(match[1], parseManifest) });
+        matches.push({ index: match.index, artifact: parseManifestBlock(match[2], parseManifest) });
     }
 
     for (const match of message.matchAll(LEGACY_JS_FENCE)) {
-        matches.push({ index: match.index, artifact: normalizeLegacyArtifact(match[1], parseManifest) });
+        matches.push({ index: match.index, artifact: normalizeLegacyArtifact(match[2], parseManifest) });
     }
 
     for (const match of message.matchAll(HTML_FENCE)) {
-        if (/<script\b/i.test(match[1])) {
-            matches.push({ index: match.index, artifact: normalizeAutomaticHtml(match[1]) });
+        if (/<script\b/i.test(match[2])) {
+            matches.push({ index: match.index, artifact: normalizeAutomaticHtml(match[2]) });
         }
     }
 

@@ -16,3 +16,28 @@ test('persists state under the chat-scoped artifact key', async () => {
     assert.equal(metadata.emberV4.artifacts.tracker.messageId, '2');
     assert.equal(saves, 1);
 });
+
+test('rejects aggregate state overflow atomically', async () => {
+    const metadata = {};
+    const store = createArtifactStateStore({ getMetadata: () => metadata });
+    const session = { artifactKey: 'tracker', chatId: 'chat', messageId: '2' };
+    await store.write(session, 'safe', 'kept');
+    await assert.rejects(() => store.write(session, 'tooLarge', 'x'.repeat(500_000)), /aggregate storage limit/);
+    assert.deepEqual(metadata.emberV4.artifacts.tracker.state, { safe: 'kept' });
+});
+
+test('rejects unbounded state keys and cross-chat ownership', async () => {
+    const metadata = {};
+    const store = createArtifactStateStore({ getMetadata: () => metadata });
+    const session = { artifactKey: 'tracker', chatId: 'chat', messageId: '2' };
+    for (let index = 0; index < 100; index += 1) {
+        await store.write(session, `key-${index}`, index);
+    }
+    await assert.rejects(() => store.write(session, 'overflow', true), /limited to 100 keys/);
+    await assert.rejects(() => store.write(
+        { artifactKey: 'tracker', chatId: 'another-chat', messageId: '2' },
+        'key-0',
+        'changed',
+    ), /another chat/);
+    assert.equal(metadata.emberV4.artifacts.tracker.state['key-0'], 0);
+});
