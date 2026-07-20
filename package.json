@@ -1,0 +1,13 @@
+{
+  "name": "ember-sillytavern-extension",
+  "version": "4.0.0-dev.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --test-reporter=spec tests/*.test.js",
+    "test:smoke": "node --test --test-reporter=spec tests/import-smoke.test.js"
+  }
+}

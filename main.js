@@ -188,6 +188,13 @@ function updateEmberPromptInjection() {
     const promptId = "emberinstructions";
     const promptDepth = 4;
 
+    if (globalThis.Ember?.compatibility?.modernPromptOwned) {
+        setExtensionPrompt(promptId, "");
+        setExtensionPrompt(promptId + "_system", "");
+        setExtensionPrompt(promptId + "_before", "");
+        return;
+    }
+
     console.log(`[Ember Debug] Updating prompt injection...`);
     console.log(`[Ember Debug] clickableInputsEnabled: ${emberSettings.clickableInputsEnabled}`);
     console.log(`[Ember Debug] clickableInputsPromptEnabled: ${emberSettings.clickableInputsPromptEnabled}`);
@@ -955,6 +962,13 @@ async function processMessage(messageId, isUserMessage = false) {
         return;
     }
 
+    const modernSource = getContext().chat[messageId]?.mes ?? '';
+    const modernRuntimeOwnsMessage = /```(?:javascript|js)\b/i.test(modernSource) ||
+        (/<script\b/i.test(modernSource) && (/```html\b/i.test(modernSource) || modernSource.trimStart().startsWith('<')));
+    if (globalThis.Ember?.compatibility?.legacyJavascriptOwned && modernRuntimeOwnsMessage) {
+        return;
+    }
+
     let processedByEmberJs = false;
     let processedScriptHashes = new Set(); // Track processed scripts to avoid duplicates
     
@@ -1236,7 +1250,7 @@ async function processMessage(messageId, isUserMessage = false) {
         }
     }
 
-    if (emberSettings.directHtmlEnabled && !messageTextElement.querySelector('.ember-generic-html-iframe')) {
+    if (!globalThis.Ember?.compatibility?.secureHtmlOwned && emberSettings.directHtmlEnabled && !messageTextElement.querySelector('.ember-generic-html-iframe')) {
         if (htmlForProcessing) { // Ensure there's content to process
             // Heuristic to prevent rendering the chat's own UI as HTML
             const isChatMessageUI = /class="mes_block"|class="mes_text"/.test(htmlForProcessing);
@@ -1256,7 +1270,7 @@ async function processMessage(messageId, isUserMessage = false) {
         }
     }
 
-    if (!messageTextElement.querySelector('.ember-iframe, .ember-generic-html-iframe') && !genericHtmlShouldBeHandled) {
+    if (!messageTextElement.querySelector('.ember-iframe, .ember-generic-html-iframe') && !genericHtmlShouldBeHandled && !messageTextElement.dataset.emberV4SecureHtml) {
         if (emberSettings.clickableInputsEnabled) {
             processClickableInputs(messageTextElement);
         }
@@ -1386,6 +1400,7 @@ function saveSettings() {
  * Enhanced message processing that applies WeatherPack-style HTML preservation
  */
 function enhanceMessageWithHtmlProcessing(messageId) {
+    if (globalThis.Ember?.compatibility?.secureHtmlOwned) return false;
     console.log(`[Ember HTML Enhancement] Processing message ${messageId} with HTML preservation`);
     
     const messageElement = document.querySelector(`.mes[mesid="${messageId}"]`);

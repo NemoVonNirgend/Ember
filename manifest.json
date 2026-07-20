@@ -1,9 +1,9 @@
 {
     "display_name": "Ember ",
     "author": "NemoVonNirgend",
-    "version": "3.3.1",
+    "version": "4.0.0-dev.1",
     "description": "Renders interactive JS/HTML/CSS, general HTML, and makes raw form inputs clickable with context injection capabilities from both HTML buttons and JS blocks.",
-    "js": "main.js",
+    "js": "bootstrap.js",
     "css": "style.css",
     "requires": [],
     "optional": [],
