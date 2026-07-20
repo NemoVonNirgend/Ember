@@ -9,6 +9,9 @@ export function createSettingsController({
     secureHtmlController,
     persist,
     promptController,
+    artifactLibrary,
+    artifactIo,
+    confirmRemove = title => globalThis.confirm?.(`Remove ${title} from the Ember artifact library?`) ?? true,
 }) {
     let root = null;
 
@@ -18,6 +21,62 @@ export function createSettingsController({
         root.querySelector('[data-ember-v4-sessions]').textContent = String(runtime.sessions.size);
         root.querySelector('[data-ember-v4-decisions]').textContent = String(Object.keys(settings.permissionDecisions ?? {}).length);
         root.querySelector('[data-ember-v4-events]').textContent = String(observability.size);
+        root.querySelector('[data-ember-v4-library-count]').textContent = String(artifactLibrary.list().length);
+    }
+
+    function setLibraryStatus(message, failed = false) {
+        const status = root?.querySelector('[data-ember-v4-library-status]');
+        if (!status) return;
+        status.textContent = message;
+        status.dataset.state = failed ? 'error' : 'ok';
+    }
+
+    function renderLibrary() {
+        const target = root?.querySelector('[data-ember-v4-library-list]');
+        if (!target) return;
+        target.replaceChildren();
+        const records = artifactLibrary.list();
+        if (!records.length) {
+            const empty = document.createElement('p');
+            empty.className = 'description';
+            empty.textContent = 'No reusable artifacts saved yet.';
+            target.appendChild(empty);
+            return;
+        }
+        for (const record of records) {
+            const row = document.createElement('div');
+            row.className = 'ember-v4-library-entry';
+            const title = document.createElement('strong');
+            title.textContent = record.title;
+            const digest = document.createElement('code');
+            digest.textContent = record.package.digest.slice(0, 19);
+            const reuse = document.createElement('button');
+            reuse.type = 'button';
+            reuse.className = 'menu_button';
+            reuse.textContent = 'Add to composer';
+            reuse.addEventListener('click', () => {
+                artifactIo.addToComposer(artifactLibrary.fence(record.id));
+                setLibraryStatus(`Added ${record.title} to the composer. Send it when ready.`);
+            });
+            const download = document.createElement('button');
+            download.type = 'button';
+            download.className = 'menu_button';
+            download.textContent = 'Export';
+            download.addEventListener('click', () => artifactIo.download(artifactLibrary.exportText(record.id)));
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'menu_button';
+            remove.textContent = 'Remove';
+            remove.addEventListener('click', async () => {
+                if (!confirmRemove(record.title)) return;
+                await artifactLibrary.remove(record.id);
+                setLibraryStatus(`Removed ${record.title}.`);
+                renderLibrary();
+                update();
+            });
+            row.append(title, digest, reuse, download, remove);
+            target.appendChild(row);
+        }
     }
 
     return Object.freeze({
@@ -35,6 +94,7 @@ export function createSettingsController({
                     <span>Mounted sessions</span><strong data-ember-v4-sessions></strong>
                     <span>Remembered decisions</span><strong data-ember-v4-decisions></strong>
                     <span>Runtime events</span><strong data-ember-v4-events></strong>
+                    <span>Reusable artifacts</span><strong data-ember-v4-library-count></strong>
                 </div>
                 <div class="flex-container">
                     <button type="button" class="menu_button" data-ember-v4-clear-decisions>Clear permission decisions</button>
@@ -45,7 +105,7 @@ export function createSettingsController({
                         <input type="checkbox" data-ember-v4-secure-html>
                         Use Ember 4 secure HTML renderer
                     </label>
-                    <div class="description">Sanitizes complete HTML messages with SillyTavern DOMPurify and updates them with morphdom. Reload after disabling if you want Ember 3 to process existing HTML messages.</div>
+                    <div class="description">Sanitizes complete static HTML messages with SillyTavern DOMPurify. Disabling restores SillyTavern's normal formatter; it never enables legacy script execution.</div>
                 </div>
                 <div class="setting-row">
                     <label class="checkbox_label">
@@ -57,18 +117,20 @@ export function createSettingsController({
                     <div class="description">Uses one prompt slot. When enabled, the older multi-slot Ember instructions are cleared.</div>
                 </div>
                 <div class="setting-row">
-                    <label class="checkbox_label">
-                        <input type="checkbox" data-ember-v4-migrate-legacy-js>
-                        Run legacy JavaScript blocks through Ember 4
-                    </label>
-                    <div class="description">Converts legacy frontmatter, infers required libraries and permissions, and executes the block in the secure runtime. Reload after changing this setting.</div>
-                </div>
-                <div class="setting-row">
                     <label>Secure HTML processing</label>
                     <select class="text_pole" data-ember-v4-html-mode>
                         <option value="responses">AI responses only</option>
                         <option value="both">User and AI messages</option>
                     </select>
+                </div>
+                <div class="setting-row">
+                    <h4>Reusable artifact library</h4>
+                    <div class="flex-container">
+                        <button type="button" class="menu_button" data-ember-v4-import>Import .ember.json</button>
+                        <input type="file" accept=".json,.ember.json,application/json" hidden data-ember-v4-import-file>
+                    </div>
+                    <div class="ember-v4-library-status" data-ember-v4-library-status></div>
+                    <div class="ember-v4-library-list" data-ember-v4-library-list></div>
                 </div>
                 <p class="description">Ember v2 artifacts run in unique-origin frames and must receive explicit permission before using SillyTavern actions.</p>`;
             parent.appendChild(root);
@@ -117,13 +179,30 @@ export function createSettingsController({
                 promptText.value = settings.artifactPrompt;
                 persist?.();
             });
-            const migrateLegacy = root.querySelector('[data-ember-v4-migrate-legacy-js]');
-            migrateLegacy.checked = settings.migrateLegacyJavascript;
-            migrateLegacy.addEventListener('change', () => {
-                settings.migrateLegacyJavascript = migrateLegacy.checked;
-                persist?.();
+            const importButton = root.querySelector('[data-ember-v4-import]');
+            const importFile = root.querySelector('[data-ember-v4-import-file]');
+            importButton.addEventListener('click', () => importFile.click());
+            importFile.addEventListener('change', async () => {
+                try {
+                    const text = await artifactIo.readFile(importFile.files?.[0]);
+                    const record = await artifactLibrary.importText(text);
+                    setLibraryStatus(`Imported ${record.title}. Review and add it to the composer when ready.`);
+                    observability.record('artifact.imported', { libraryId: record.id });
+                    renderLibrary();
+                    update();
+                } catch (error) {
+                    setLibraryStatus(`Import failed: ${error.message}`, true);
+                    observability.record('artifact.import_failed', { error: error.message });
+                } finally {
+                    importFile.value = '';
+                }
             });
             observability.subscribe(update);
+            artifactLibrary.subscribe(() => {
+                renderLibrary();
+                update();
+            });
+            renderLibrary();
             update();
             return true;
         },

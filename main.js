@@ -368,7 +368,7 @@ async function renderGenericHtmlInFrame(targetElement, htmlString, messageId) {
     const iframe = document.createElement('iframe');
     iframe.className = 'ember-generic-html-iframe';
     Object.assign(iframe.style, { width: '100%', border: 'none', display: 'block', overflow: 'hidden' });
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    iframe.setAttribute('sandbox', '');
 
     const loadingSpinner = Object.assign(document.createElement('div'), {
         className: 'ember-loading-container',
@@ -758,7 +758,7 @@ async function processScriptTagsInHTML(messageId, htmlContent, messageTextElemen
 function createSandboxedFrame(code, libraryCodes = [], frameId) {
     const iframe = document.createElement('iframe');
     iframe.className = 'ember-iframe';
-    iframe.sandbox = 'allow-scripts allow-same-origin';
+    iframe.sandbox = 'allow-scripts';
     iframe.dataset.frameId = frameId;
     iframe.style.cssText = 'width: 100%; border: none; display: block; overflow: hidden; max-height: 600px; min-height: 200px;';
     const safeCodeString = JSON.stringify(code);
@@ -963,7 +963,7 @@ async function processMessage(messageId, isUserMessage = false) {
     }
 
     const modernSource = getContext().chat[messageId]?.mes ?? '';
-    const modernRuntimeOwnsMessage = /```(?:javascript|js)\b/i.test(modernSource) ||
+    const modernRuntimeOwnsMessage = /```(?:ember|javascript|js)\b/i.test(modernSource) ||
         (/<script\b/i.test(modernSource) && (/```html\b/i.test(modernSource) || modernSource.trimStart().startsWith('<')));
     if (globalThis.Ember?.compatibility?.legacyJavascriptOwned && modernRuntimeOwnsMessage) {
         return;
@@ -1278,8 +1278,15 @@ async function processMessage(messageId, isUserMessage = false) {
 }
 
 window.addEventListener('message', async (event) => {
+    // Ember 4 owns every executable artifact. Its authenticated router handles
+    // host actions, so the old protocol must never accept packets alongside it.
+    if (globalThis.Ember?.version?.startsWith('4.')) return;
     if (!event.data || !event.data.type?.startsWith('ember-')) return;
     const { type, frameId, message, height, injection } = event.data;
+    if (typeof frameId !== 'string' || !/^ember-frame-\d+-(?:script|codeblock)-\d+$/.test(frameId)) return;
+    const legacyFrame = document.querySelector(`iframe.ember-iframe[data-frame-id="${frameId}"]`);
+    if (!legacyFrame || legacyFrame.contentWindow !== event.source) return;
+    if (JSON.stringify(event.data).length > 20_000) return;
     console.log(`[Ember Debug] Received message from iframe: ${type}, frameId: ${frameId}`);
     const loadingContainer = document.querySelector(`.ember-loading-container[data-frame-id="${frameId}"]`);
     const finalContainer = document.querySelector(`.ember-container[data-frame-id="${frameId}"]`);

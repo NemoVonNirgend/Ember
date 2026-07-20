@@ -22,6 +22,8 @@ export function createArtifactInspector({
     modelRepair,
     repairApplication,
     confirmType,
+    artifactLibrary,
+    artifactIo,
 }) {
     return async function openInspector({ artifact, session }) {
         const content = document.createElement('div');
@@ -38,6 +40,51 @@ export function createArtifactInspector({
         addField(document, content, 'Status', session?.status);
         addField(document, content, 'Requested', artifact.manifest.permissions.join(', ') || 'None');
         addField(document, content, 'Granted', session?.permissions.join(', ') || 'None');
+
+        const portableActions = document.createElement('div');
+        portableActions.className = 'flex-container ember-v4-portable-actions';
+        const saveButton = document.createElement('button');
+        saveButton.type = 'button';
+        saveButton.className = 'menu_button';
+        saveButton.textContent = 'Save to library';
+        const exportButton = document.createElement('button');
+        exportButton.type = 'button';
+        exportButton.className = 'menu_button';
+        exportButton.textContent = 'Export .ember.json';
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'menu_button';
+        copyButton.textContent = 'Copy reusable fence';
+        const portableStatus = document.createElement('div');
+        portableStatus.className = 'ember-v4-portable-status';
+        const runPortableAction = async (button, action) => {
+            button.disabled = true;
+            try {
+                portableStatus.textContent = await action();
+            } catch (error) {
+                portableStatus.textContent = `Artifact action failed: ${error.message}`;
+            } finally {
+                button.disabled = false;
+            }
+        };
+        saveButton.addEventListener('click', () => runPortableAction(saveButton, async () => {
+            const record = await artifactLibrary.saveArtifact(artifact);
+            observability.record('artifact.saved', { artifactId: session?.id, libraryId: record.id });
+            return `Saved ${record.title} to the reusable artifact library.`;
+        }));
+        exportButton.addEventListener('click', () => runPortableAction(exportButton, async () => {
+            const exported = await artifactLibrary.exportArtifact(artifact);
+            artifactIo.download(exported);
+            observability.record('artifact.exported', { artifactId: session?.id, fileName: exported.fileName });
+            return `Exported ${exported.fileName}.`;
+        }));
+        copyButton.addEventListener('click', () => runPortableAction(copyButton, async () => {
+            await artifactIo.copy(artifactLibrary.fenceForArtifact(artifact));
+            observability.record('artifact.copied', { artifactId: session?.id });
+            return 'Copied a reusable Ember fence to the clipboard.';
+        }));
+        portableActions.append(saveButton, exportButton, copyButton);
+        content.append(portableActions, portableStatus);
 
         const sourceHeading = document.createElement('h4');
         sourceHeading.textContent = 'Source';

@@ -2,8 +2,11 @@
 
 const SANITIZE_OPTIONS = Object.freeze({
     USE_PROFILES: { html: true },
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'base'],
-    FORBID_ATTR: ['srcdoc'],
+    FORBID_TAGS: [
+        'script', 'iframe', 'object', 'embed', 'base', 'style', 'form', 'a',
+        'button', 'input', 'textarea', 'select', 'option', 'label', 'fieldset', 'legend',
+    ],
+    FORBID_ATTR: ['srcdoc', 'style', 'action', 'formaction', 'target', 'id', 'name'],
     ALLOW_DATA_ATTR: true,
 });
 

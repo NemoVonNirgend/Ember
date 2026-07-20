@@ -9,10 +9,13 @@ export function createSillyTavernHostActions({
     stateStore,
     fetchNetwork,
     observe = () => {},
+    isSessionCurrent = () => true,
+    hasUserActivation = () => true,
 }) {
     const injectionKeys = new Map();
     const ephemeralKeys = new Set();
 
+    let interactionInFlight = false;
     function injectionKey(session, id) {
         return `ember4:${session.chatId}:${session.messageId}:${session.artifactKey}:${id}`;
     }
@@ -22,19 +25,43 @@ export function createSillyTavernHostActions({
         ephemeralKeys.delete(key);
     }
 
+    function requireCurrentSession(session) {
+        if (!session || !isSessionCurrent(session)) {
+            throw new Error('Artifact session is no longer active in the current chat.');
+        }
+    }
+
+    async function runInteraction(request, action) {
+        requireCurrentSession(request.session);
+        if (!hasUserActivation(request)) throw new Error('Artifact action requires a user interaction.');
+        if (interactionInFlight) throw new Error('Another artifact interaction is already in progress.');
+        interactionInFlight = true;
+        try {
+            return await action();
+        } finally {
+            interactionInFlight = false;
+        }
+    }
+
     return Object.freeze({
-        async submit({ session, payload }) {
-            await sendMessage(payload.text);
-            if (payload.generate) await generate('normal');
-            observe('host.submit', { artifactId: session.id, generated: payload.generate });
-            return { submitted: true, generated: payload.generate };
+        async submit(request) {
+            return runInteraction(request, async () => {
+                const { session, payload } = request;
+                await sendMessage(payload.text);
+                if (payload.generate) await generate('normal');
+                observe('host.submit', { artifactId: session.id, generated: payload.generate });
+                return { submitted: true, generated: payload.generate };
+            });
         },
-        async generate({ session } = {}) {
-            await generate('normal');
-            observe('host.generate', { artifactId: session?.id });
-            return { generated: true };
+        async generate(request = {}) {
+            return runInteraction(request, async () => {
+                await generate('normal');
+                observe('host.generate', { artifactId: request.session.id });
+                return { generated: true };
+            });
         },
         async inject({ session, payload }) {
+            requireCurrentSession(session);
             const key = injectionKey(session, payload.id);
             setPrompt(key, payload.content, promptPosition, payload.depth, false, promptRole);
             if (!injectionKeys.has(session.id)) injectionKeys.set(session.id, new Set());
@@ -44,14 +71,17 @@ export function createSillyTavernHostActions({
             return { injected: true, id: payload.id };
         },
         async readState({ session, payload }) {
+            requireCurrentSession(session);
             observe('state.read', { artifactId: session.id, key: payload.key });
             return { key: payload.key, value: stateStore.read(session, payload.key) };
         },
         async writeState({ session, payload }) {
+            requireCurrentSession(session);
             observe('state.write', { artifactId: session.id, key: payload.key });
             return stateStore.write(session, payload.key, payload.value);
         },
         async fetchNetwork(request) {
+            requireCurrentSession(request.session);
             if (typeof fetchNetwork !== 'function') throw new Error('Artifact networking is unavailable.');
             return fetchNetwork(request);
         },

@@ -70,3 +70,18 @@ test('normalizes safe network requests and rejects ambient credential headers', 
     assert.equal(unsafe.ok, false);
     assert.match(unsafe.error, /not allowed/);
 });
+
+test('bounds operational artifact payloads', () => {
+    assert.deepEqual(validateActionPayload('artifact.ready', {}), { ok: true, value: {} });
+    assert.equal(validateActionPayload('artifact.ready', { unexpected: true }).ok, false);
+    assert.deepEqual(validateActionPayload('artifact.resize', { height: 240 }), {
+        ok: true,
+        value: { height: 240 },
+    });
+    assert.equal(validateActionPayload('artifact.resize', { height: 1e9 }).ok, false);
+    assert.deepEqual(validateActionPayload('artifact.error', { message: 'failed', line: 2 }), {
+        ok: true,
+        value: { message: 'failed', line: 2 },
+    });
+    assert.equal(validateActionPayload('artifact.error', { message: 'x'.repeat(10_001) }).ok, false);
+});

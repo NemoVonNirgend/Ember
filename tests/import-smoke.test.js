@@ -32,6 +32,9 @@ test('foundation modules import without a browser DOM', async () => {
         import('../src/libraries/artifact-library-registry.js'),
         import('../src/repair/repair-application-service.js'),
         import('../src/integration/network-broker.js'),
+        import('../src/artifacts/artifact-package.js'),
+        import('../src/integration/artifact-library-store.js'),
+        import('../src/integration/browser-artifact-io.js'),
     ]);
-    assert.equal(modules.length, 29);
+    assert.equal(modules.length, 32);
 });

@@ -67,6 +67,29 @@ function jsonSize(value) {
 
 export function validateActionPayload(type, payload = {}) {
     switch (type) {
+        case 'artifact.ready':
+            return jsonSize(payload) <= 2 ? { ok: true, value: {} } : { ok: false, error: 'Ready payload must be empty.' };
+        case 'artifact.resize': {
+            const height = Number(payload.height);
+            return Number.isFinite(height) && height >= 1 && height <= 100_000
+                ? { ok: true, value: { height } }
+                : { ok: false, error: 'Artifact resize height is invalid.' };
+        }
+        case 'artifact.error': {
+            if (typeof payload.message !== 'string' || !payload.message || payload.message.length > 10_000) {
+                return { ok: false, error: 'Artifact error message is invalid.' };
+            }
+            const value = { message: payload.message };
+            for (const field of ['line', 'column']) {
+                if (payload[field] === undefined) continue;
+                const number = Number(payload[field]);
+                if (!Number.isInteger(number) || number < 0 || number > 10_000_000) {
+                    return { ok: false, error: `Artifact error ${field} is invalid.` };
+                }
+                value[field] = number;
+            }
+            return { ok: true, value };
+        }
         case 'host.submit':
             if (typeof payload.text !== 'string' || !payload.text.trim()) {
                 return { ok: false, error: 'Submit action requires non-empty text.' };
@@ -140,6 +163,8 @@ export function validateActionPayload(type, payload = {}) {
                 ? { ok: true, value: { key: String(payload.key ?? 'default'), value: payload.value } }
                 : validateActionPayload('state.read', payload);
         default:
-            return { ok: true, value: payload };
+            return jsonSize(payload) <= 20_000
+                ? { ok: true, value: payload }
+                : { ok: false, error: 'Bridge payload exceeds the allowed size.' };
     }
 }

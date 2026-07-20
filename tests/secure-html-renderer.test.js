@@ -21,6 +21,14 @@ test('sanitizes before morphing the existing message node', () => {
     const target = { tagName: 'DIV', dataset: {} };
     renderer.render(target, '<script>bad()</script><div>Safe</div>');
     assert.equal(calls[0][0], 'sanitize');
+    assert.equal(calls[0][2].FORBID_TAGS.includes('style'), true);
+    assert.equal(calls[0][2].FORBID_TAGS.includes('form'), true);
+    assert.equal(calls[0][2].FORBID_TAGS.includes('a'), true);
+    assert.equal(calls[0][2].FORBID_TAGS.includes('button'), true);
+    assert.equal(calls[0][2].FORBID_TAGS.includes('textarea'), true);
+    assert.equal(calls[0][2].FORBID_ATTR.includes('style'), true);
+    assert.equal(calls[0][2].FORBID_ATTR.includes('id'), true);
+    assert.equal(calls[0][2].FORBID_ATTR.includes('name'), true);
     assert.equal(calls[1][0], 'morphdom');
     assert.equal(calls[1][1], target);
     assert.equal(calls[1][3].childrenOnly, true);

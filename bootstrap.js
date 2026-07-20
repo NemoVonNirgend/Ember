@@ -23,7 +23,7 @@ import { createEmberRuntime } from './src/core/runtime.js';
 import { createPermissionPolicy } from './src/core/permission-policy.js';
 import { parseArtifact } from './src/parser/artifact-parser.js';
 import { createArtifactStateStore } from './src/integration/artifact-state-store.js';
-import { createMessageController } from './src/integration/message-controller.js';
+import { createMessageController, revisionOf } from './src/integration/message-controller.js';
 import { createSillyTavernHostActions } from './src/integration/sillytavern-host-actions.js';
 import { createTrustedHostLibraries } from './src/libraries/trusted-host-libraries.js';
 import { createObservabilityService } from './src/observability/observability-service.js';
@@ -40,6 +40,8 @@ import { createArtifactLibraryResolver } from './src/libraries/artifact-library-
 import { createRepairApplicationService } from './src/repair/repair-application-service.js';
 import { createNetworkBroker } from './src/integration/network-broker.js';
 
+import { createArtifactLibraryStore } from './src/integration/artifact-library-store.js';
+import { createBrowserArtifactIo } from './src/integration/browser-artifact-io.js';
 const settings = extension_settings.Ember4 ??= {
     permissionDecisions: {},
     secureHtmlRendererEnabled: true,
@@ -52,7 +54,12 @@ settings.secureHtmlRendererEnabled ??= true;
 settings.secureHtmlMode ??= 'responses';
 settings.artifactPromptEnabled ??= true;
 settings.artifactPrompt ||= DEFAULT_ARTIFACT_PROMPT;
-settings.migrateLegacyJavascript ??= true;
+settings.migrateLegacyJavascript = true;
+const artifactIo = createBrowserArtifactIo({ document: globalThis.document });
+const artifactLibrary = createArtifactLibraryStore({
+    settings,
+    persist: () => getContext().saveSettingsDebounced(),
+});
 const hostLibraries = createTrustedHostLibraries({ DOMPurify, yaml, hljs, morphdom, DiffMatchPatch });
 const observability = createObservabilityService();
 const requestPermission = createPermissionDialog({
@@ -83,6 +90,12 @@ const hostActions = createSillyTavernHostActions({
     stateStore,
     fetchNetwork: request => networkBroker.request(request),
     observe: (type, detail) => observability.record(type, detail),
+    isSessionCurrent: session => {
+        if (String(getCurrentChatId() ?? '') !== session.chatId) return false;
+        const message = getContext().chat?.[Number(session.messageId)];
+        return Boolean(message) && revisionOf(message) === session.revision;
+    },
+    hasUserActivation: () => globalThis.navigator.userActivation?.isActive === true,
 });
 const promptController = createArtifactPromptController({
     settings,
@@ -115,13 +128,13 @@ const runtime = createEmberRuntime({
     observability,
     compatibility: Object.freeze({
         get secureHtmlOwned() {
-            return settings.secureHtmlRendererEnabled;
+            return true;
         },
         get modernPromptOwned() {
-            return settings.artifactPromptEnabled;
+            return true;
         },
         get legacyJavascriptOwned() {
-            return settings.migrateLegacyJavascript;
+            return true;
         },
     }),
 });
@@ -147,6 +160,8 @@ const openInspector = createArtifactInspector({
     modelRepair,
     repairApplication,
     confirmType: POPUP_TYPE.CONFIRM,
+    artifactLibrary,
+    artifactIo,
 });
 const messageController = createMessageController({
     eventSource: context.eventSource,
@@ -158,7 +173,8 @@ const messageController = createMessageController({
     iframeRuntime: runtime.publicApi.iframeRuntime,
     openInspector,
     observe: (type, detail) => observability.record(type, detail),
-    includeLegacy: () => settings.migrateLegacyJavascript,
+    includeLegacy: () => true,
+    artifactRegistry: runtime.publicApi.artifacts,
 });
 messageController.install();
 context.eventSource.on(context.event_types.GENERATION_ENDED, () => hostActions.clearEphemeral());
@@ -200,7 +216,9 @@ const settingsController = createSettingsController({
     secureHtmlController,
     persist: () => getContext().saveSettingsDebounced(),
     promptController,
+    artifactLibrary,
+    artifactIo,
 });
-for (let attempt = 0; attempt < 20 && !settingsController.install(); attempt += 1) {
+for (let attempt = 0; attempt < 120 && !settingsController.install(); attempt += 1) {
     await new Promise(resolve => setTimeout(resolve, 250));
 }

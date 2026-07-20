@@ -10,6 +10,7 @@ test('builds a unique-origin compatible frame without same-origin permission', (
         source: 'root.textContent = "ready";',
     });
     assert.match(html, /default-src 'none'/);
+    assert.match(html, /script-src 'unsafe-inline' 'unsafe-eval'/);
     assert.doesNotMatch(html, /allow-same-origin/);
     assert.match(html, /new AsyncFunction/);
 });
